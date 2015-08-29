@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<head></head>
+<body>
+  <div id="top_left">
+    <div id="node_selector">
+      <ul></ul>
+      <input type="text" placeholder="newnode@<%= hostname %>"/>
+    </div>
+
+    <div id="controls">
+      <button id="stop_msg_tracing">Stop Msg Tracing</button>
+    </div>
+
+    <div id="legend">
+      <svg>
+        <g class="node supervisor">
+          <circle cx="10" cy="20" r="5"></circle>
+          <text x="10" y="20" dx="8" dy="3">Supervisor</text>
+        </g>
+        <g class="node normal">
+          <circle cx="10" cy="40" r="5"></circle>
+          <text x="10" y="40" dx="8" dy="3">PID</text>
+        </g>
+        <g class="node normal msg_traced">
+          <circle cx="10" cy="60" r="5"></circle>
+          <text x="10" y="60" dx="8" dy="3">PID (msg tracing)</text>
+        </g>
+        <g class="node port">
+          <circle cx="10" cy="80" r="5"></circle>
+          <text x="10" y="80" dx="8" dy="3">Port</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+
+  <div id="graph"></div>
+  <div id="log"></div>
+</body>
+</html>
