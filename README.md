@@ -15,10 +15,9 @@ Here's Visualixir tracing some messages through the [Riemann](https://github.com
 ## Getting Going
 
 1. Clone this repository.
-2. Compile: `mix deps.get && mix compile`
-3. Compile the front end `npm install && ./node_modules/brunch/bin/brunch build`
-4. Start 'er up: `elixir --sname visualixir --hidden -S mix phoenix.server`
-5. Navigate to [the GUI](http://localhost:4000)
+2. Compile: `mix deps.get && mix compile && npm install`
+3. Start 'er up: `elixir --sname visualixir --hidden -S mix phoenix.server`
+4. Navigate to [the GUI](http://localhost:4000)
 
 If you want to visualize other BEAM nodes, you'll need to start them up with the `--sname <unique_name_here>` option.
 
