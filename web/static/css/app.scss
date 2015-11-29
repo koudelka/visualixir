@@ -16,23 +16,6 @@ html, body {
 }
 
 
-#graph {
-  width:100%;
-  height:80%;
-  margin:none;
-  padding:none;
-
-  line.link {
-    stroke: #ccc; 
-  }
-  
-  path.msg {
-    stroke: red;
-    fill: none;
-    opacity: 1
-  }
-}
-
 g.node circle {
   stroke: black;
 }
@@ -66,8 +49,60 @@ g.node {
     pointer-events: none;
     font: 7px sans-serif;
   }
+}
 
 
+#graph {
+  width:100%;
+  height:80%;
+  margin:none;
+  padding:none;
+
+  line.link {
+    stroke: #ccc; 
+  }
+  
+  path.msg {
+    stroke: red;
+    fill: none;
+    opacity: 1
+  }
+}
+
+.left {
+  width: 50%;
+  height: 100%;
+  display: inline-block;
+}
+
+#msg_seq {
+  width: 49%;
+  height: 100%;
+  border-left: 1px solid black;
+  display: inline-block;
+
+  g.actor text {
+      font-size: 6pt !important;
+  }
+
+  g.actor line {
+    stroke: lightgray;
+    stroke-width: 1px;
+  }
+
+  g.message text {
+    font: 8pt monospace !important;
+  }
+
+  g.message line {
+    stroke: black;
+    stroke-width: 1.5px;
+  }
+
+  g.message path {
+    stroke: black;
+    stroke-width: 1.5px;
+  }
 }
 
 #log {

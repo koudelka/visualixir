@@ -34,7 +34,10 @@
     </div>
   </div>
 
-  <div id="graph"></div>
-  <div id="log"></div>
+  <div class="left">
+      <div id="graph"></div>
+      <div id="log"></div>
+  </div>
+  <div id="msg_seq"></div>
 </body>
 </html>

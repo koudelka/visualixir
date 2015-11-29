@@ -21,7 +21,7 @@ class App {
       this.node_view.cleanup();
       this.node_selector.cleanup(this.node_view.node);
     }
-    this.node_view = new NodeView(node, $('#graph'), $('#log'));
+    this.node_view = new NodeView(node, $('#graph'), $('#msg_seq'), $('#log'));
   }
 
 }

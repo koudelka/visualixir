@@ -214,7 +214,7 @@ export default class {
           .attr("class", "msg");
 
     new_msg_els.transition()
-      .duration(500)
+      .duration(2000)
       .style("opacity", 0)
       .each("end", d => delete this.msgs[d.id])
       .remove();

@@ -1,34 +1,19 @@
 import Graph from "web/static/js/graph";
+import MessageSequence from "web/static/js/message_sequence";
 import Log from "web/static/js/log";
 
 export default class {
-  addNode(id, info) {
-    let pid = {"id": id,
-               links: {},
-               name: info.name,
-               application: info.application,
-               type: info.type,
-               msg_traced: info.msg_traced};
-    this.pids[id] = pid;
-  }
-
-  removeNode(id) {
-    if(!this.pids[id]) return;
-
-    this.graph.removeNode(this.pids[id]);
-
-    delete this.pids[id];
-  }
-
-  constructor(node, graph_container, log_container) {
+  constructor(node, graph_container, msg_seq_container, log_container) {
     this.node = node;
     this.channel = socket.channel("trace:"+ node, {});
     this.pids = {};
 
     graph_container.empty();
+    msg_seq_container.empty();
     log_container.empty();
 
     this.graph = new Graph(graph_container, this, this.pids);
+    this.msg_seq = new MessageSequence(msg_seq_container);
     this.logger = new Log(log_container);
 
     this.channel.on("spawn", msg => {
@@ -54,7 +39,13 @@ export default class {
     this.channel.on("links", msg => {
       msg.links.forEach(link => {
         this.graph.addLink(link[0], link[1]);
-        this.logger.logTwoPidLine(this.pids[link[0]], this.pids[link[1]], "link");
+
+        var from = this.pids[link[0]],
+            to = this.pids[1];
+
+        if (from && to) {
+          this.logger.logTwoPidLine(from, to, "link");
+        }
       });
       this.graph.update(true);
     });
@@ -67,7 +58,15 @@ export default class {
 
     this.channel.on("msg", msg => {
       this.graph.addMsg(msg.from_pid, msg.to_pid);
-      this.logger.logMsgLine(this.pids[msg.from_pid], this.pids[msg.to_pid], msg.msg);
+
+      var from = this.pids[msg.from_pid],
+          to = this.pids[msg.to_pid];
+
+      if (from && to ) {
+        this.logger.logMsgLine(from, to, msg.msg);
+        this.msg_seq.addMessage(from, to, msg.msg);
+      }
+
       this.graph.update(false);
     });
 
@@ -78,6 +77,25 @@ export default class {
       this.graph.update(true);
     });
   }
+
+  addNode(id, info) {
+    let pid = {"id": id,
+               links: {},
+               name: info.name,
+               application: info.application,
+               type: info.type,
+               msg_traced: info.msg_traced};
+    this.pids[id] = pid;
+  }
+
+  removeNode(id) {
+    if(!this.pids[id]) return;
+
+    this.graph.removeNode(this.pids[id]);
+
+    delete this.pids[id];
+  }
+
 
   msgTracePID(pid) {
     this.channel.push("msg_trace", pid);
