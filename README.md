@@ -1,6 +1,6 @@
 # Visualixir
 
-Visualixir is a toy process visualizer for remote BEAM nodes, written in Phoenix/Elixir/d3.
+Visualixir is a toy process visualizer for remote BEAM nodes, written in Phoenix/Elixir/d3, with live message sequence charts.
 
 It's largely intended as a teaching tool, to give newer BEAM programmers a look into the process ecosystem living inside their nodes. However, it may prove of some amusement/use to more experienced folks (it's kinda neat to trace `iex` and the io system).
 
@@ -43,11 +43,16 @@ Option-clicking (alt-clicking), will start message tracing the selected process.
 #### Event Log
 The log at the bottom keeps a brief history of a limited set of events on the node: spawns, exits, links, messages, etc..
 
+#### Live Message Sequence Charts
+The live message sequence charts have a configurable fade time, but there's no GUI for it yet, see [web/static/js/message_sequence.js](https://github.com/koudelka/visualixir/blob/master/web/static/js/message_sequence.js)
+
+The charting library is [here](https://github.com/koudelka/d3-message-sequence), and it'd love some pull requests. <3
+
 ## Warning
 Do not run Visualixir on production nodes, seriously. I've tried to make it somewhat safe, but I suspect you can get into some bad message-tracing scenarios that'll compromise your node.
 
-## Future plans
-I think Visualixir is a decent starting place for other BEAM visualization tools. I'd love to see what folks come up with, PR's are gladly accepted! 💕 (the GUI needs a lot of love)
+## Caveats
+I think Visualixir is a decent starting place for other BEAM visualization tools. I'd love to see what folks come up with, PR's are gladly accepted! 💕 (the GUI needs a lot of help)
 
 #### Riak
 It'd be really cool to watch Riak through Visualixir, but I'm afraid that isn't possible right now. Riak ships with a custom BEAM version that's rather old. Visualixir needs BEAM version parity between itself and the node being visualized. If you can find a decent way around this, I'd love to hear it. :)
