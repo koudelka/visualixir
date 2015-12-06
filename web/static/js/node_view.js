@@ -52,7 +52,7 @@ export default class {
 
     this.channel.on("unlink", msg => {
       this.graph.removeLink(msg.link[0], msg.link[1]);
-      this.logger.logTwoPidLine(this.pids[link[0]], this.pids[link[1]], "unlink");
+      this.logger.logTwoPidLine(this.pids[msg.link[0]], this.pids[msg.link[1]], "unlink");
       this.graph.update(true);
     });
 
