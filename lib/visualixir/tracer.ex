@@ -124,9 +124,7 @@ defmodule Visualixir.Tracer do
 
   # the msg tracer seems to give us back the registered name
   defp pid_to_binary(atom) when is_atom(atom) do
-    "#PID" <> (:erlang.whereis(atom)
-               |> :erlang.pid_to_list
-               |> :erlang.list_to_binary)
+    atom |> :erlang.whereis |> pid_to_binary
   end
 
   defp pid_name(pid) when is_pid(pid) do
