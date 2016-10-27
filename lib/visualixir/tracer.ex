@@ -123,7 +123,11 @@ defmodule Visualixir.Tracer do
   end
 
   # the msg tracer seems to give us back the registered name
-  defp pid_to_binary(atom) when is_atom(atom), do: atom
+  defp pid_to_binary(atom) when is_atom(atom) do
+    "#PID" <> (:erlang.whereis(atom)
+               |> :erlang.pid_to_list
+               |> :erlang.list_to_binary)
+  end
 
   defp pid_name(pid) when is_pid(pid) do
     case :erlang.process_info(pid, :registered_name) do
