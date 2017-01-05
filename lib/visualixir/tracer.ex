@@ -153,9 +153,15 @@ defmodule Visualixir.Tracer do
   end
 
   defp process_type(pid) when is_pid(pid) do
+    # pid
+    # |> :erlang.process_info(:dictionary)
+    # |> inspect
+    # |> IO.puts
     case :erlang.process_info(pid, :dictionary) do
       :undefined -> :dead
-      {_, [{_, _}, "$initial_call": {:supervisor, _, _}]} -> :supervisor
+      # Example:
+      # {:dictionary, ["$initial_call": {:supervisor, :httpc_profile_sup, 1}, "$ancestors": [:httpc_sup, :inets_sup, #PID<0.128.0>]]}
+      {_, ["$initial_call": {:supervisor, _, _}, "$ancestors": _]} -> :supervisor
       _ -> :normal
     end
   end
