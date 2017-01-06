@@ -166,7 +166,9 @@ export default class {
             d3.event.sourceEvent.stopPropagation();
           })
           .on("dragend", d => {
-            d.fixed = true;
+            if (!d3.event.sourceEvent.altKey) {
+              d.fixed = true;
+            }
           });
 
     let node = node_els.enter().append("g")
