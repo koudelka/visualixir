@@ -59,9 +59,9 @@ g.node {
   padding:none;
 
   line.link {
-    stroke: #ccc; 
+    stroke: #ccc;
   }
-  
+
   path.msg {
     stroke: red;
     fill: none;
@@ -70,7 +70,7 @@ g.node {
 }
 
 .left {
-  width: 50%;
+  width: 100%;
   height: 100%;
   display: inline-block;
 }
@@ -114,8 +114,8 @@ g.node {
   border-top: 1px solid black;
 
   .logline {
-    font: 12px sans-serif; 
-  
+    font: 12px sans-serif;
+
     &:nth-child(even) {
       background: lightgrey;
     }
