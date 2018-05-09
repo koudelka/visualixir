@@ -24,7 +24,7 @@ defmodule Visualixir.TraceChannel do
     {:noreply, socket}
   end
 
-  def handle_in("cleanup", node, socket), do: {:noreply, socket}
+  def handle_in("cleanup", _node, socket), do: {:noreply, socket}
 
   def announce_spawn(node, pid_map) do
     Endpoint.broadcast! "trace:#{node}", "spawn", pid_map

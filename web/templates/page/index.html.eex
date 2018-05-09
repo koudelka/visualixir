@@ -5,7 +5,7 @@
   <div id="top_left">
     <div id="node_selector">
       <ul></ul>
-      <input type="text" placeholder="newnode@<%= hostname %>"/>
+      <input type="text" placeholder="newnode@<%= hostname() %>"/>
     </div>
 
     <div id="controls">
