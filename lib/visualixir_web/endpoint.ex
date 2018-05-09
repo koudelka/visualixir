@@ -1,7 +1,7 @@
-defmodule Visualixir.Endpoint do
+defmodule VisualixirWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :visualixir
 
-  socket "/socket", Visualixir.UserSocket
+  socket "/socket", VisualixirWeb.UserSocket
 
   # Serve at "/" the static files from "priv/static" directory.
   #
@@ -35,5 +35,5 @@ defmodule Visualixir.Endpoint do
     key: "_visualixir_key",
     signing_salt: "DsmrSKRM"
 
-  plug Visualixir.Router
+  plug VisualixirWeb.Router
 end

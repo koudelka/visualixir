@@ -1,4 +1,4 @@
-defmodule Visualixir.PageView do
+defmodule VisualixirWeb.PageView do
   use Visualixir.Web, :view
 
   def hostname do

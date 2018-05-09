@@ -1,4 +1,4 @@
-defmodule Visualixir.ErrorView do
+defmodule VisualixirWeb.ErrorView do
   use Visualixir.Web, :view
 
   def render("404.html", _assigns) do

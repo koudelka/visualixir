@@ -1,7 +1,7 @@
-defmodule Visualixir.TraceChannel do
+defmodule VisualixirWeb.TraceChannel do
   use Visualixir.Web, :channel
   alias Visualixir.Tracer
-  alias Visualixir.Endpoint
+  alias VisualixirWeb.Endpoint
   alias Phoenix.Socket
 
   def join("trace:" <> node, _auth_msg, socket) do

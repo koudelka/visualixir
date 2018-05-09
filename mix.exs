@@ -24,17 +24,17 @@ defmodule Visualixir.Mixfile do
   end
 
   # Specifies which paths to compile per environment
-  defp elixirc_paths(:test), do: ["lib", "web", "test/support"]
-  defp elixirc_paths(_),     do: ["lib", "web"]
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_),     do: ["lib"]
 
   # Specifies your project dependencies
   #
   # Type `mix help deps` for examples and options
   defp deps do
     [
-      {:phoenix, "~> 1.2"},
-      {:phoenix_html, "~> 2.9"},
-      {:phoenix_live_reload, "~> 1.0", only: :dev},
+      {:phoenix, "~> 1.3"},
+      {:phoenix_html, "~> 2.11"},
+      {:phoenix_live_reload, "~> 1.1", only: :dev},
       {:cowboy, "~> 1.0"}
     ]
   end

@@ -6,12 +6,12 @@
 use Mix.Config
 
 # Configures the endpoint
-config :visualixir, Visualixir.Endpoint,
+config :visualixir, VisualixirWeb.Endpoint,
   url: [host: "localhost"],
   root: Path.dirname(__DIR__),
   secret_key_base: "MbDp+5iE5/jPthUlGMiNRlAADMUEReUITkuF/AZrvQMnyBTGsMsUll9d8pLiTSso",
-  render_errors: [accepts: ~w(html json)],
-  pubsub: [name: Visualixir.PubSub,
+  render_errors: [view: VisualixirWeb.ErrorView, accepts: ~w(html json)],
+  pubsub: [name: VisualixirWeb.PubSub,
            adapter: Phoenix.PubSub.PG2]
 
 # Configures Elixir's Logger

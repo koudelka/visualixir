@@ -1,7 +1,7 @@
-defmodule Visualixir.NodesChannel do
+defmodule VisualixirWeb.NodesChannel do
   use Visualixir.Web, :channel
   require Logger
-  alias Visualixir.Endpoint
+  alias VisualixirWeb.Endpoint
   alias Visualixir.Tracer
 
   @self Node.self |> Atom.to_string
