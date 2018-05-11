@@ -11,7 +11,14 @@ defmodule Visualixir.Mixfile do
       compilers: [:phoenix] ++ Mix.compilers(),
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [
+        "coveralls": :test,
+        "coveralls.detail": :test,
+        "coveralls.post": :test,
+        "coveralls.html": :test,
+      ],
     ]
   end
 
@@ -37,6 +44,7 @@ defmodule Visualixir.Mixfile do
       {:phoenix_live_reload, "~> 1.1", only: :dev},
       {:cowboy, "~> 1.0"},
       {:credo, "~> 0.9.1", only: [:dev, :test], runtime: false},
+      {:excoveralls, "~> 0.8.2", only: :test, runtime: false},
       {:mix_test_watch, "~> 0.5", only: :dev, runtime: false},
     ]
   end
