@@ -8,5 +8,8 @@ test:
 clean:
 	mix clean
 
-.PHONY: compile test clean
+lint:
+	mix credo --strict
+
+.PHONY: compile test clean lint
 

@@ -7,36 +7,39 @@ defmodule Visualixir.Tracer do
   GenServer used for tracing messages between processes on a specific node.
   """
 
-  def start(node) do
-    Node.spawn_link(node, :gen_server, :start, [{:local, __MODULE__}, __MODULE__, [Node.self], []])
+  def start(a_node) do
+    Node.spawn_link(a_node, :gen_server, :start,
+                    [{:local, __MODULE__}, __MODULE__, [Node.self], []])
   end
 
-  def initial_state(node) do
-    :rpc.call(node, __MODULE__, :initial_state, [])
+  def initial_state(a_node) do
+    :rpc.call(a_node, __MODULE__, :initial_state, [])
   end
 
-  def msg_trace(node, pid_str) do
-    pid = :rpc.call(node, __MODULE__, :pid_from_string, [pid_str])
+  def msg_trace(a_node, pid_str) do
+    pid = :rpc.call(a_node, __MODULE__, :pid_from_string, [pid_str])
     if is_pid(pid) do
-      GenServer.call({__MODULE__, node}, {:trace_msg, true, pid})
+      GenServer.call({__MODULE__, a_node}, {:trace_msg, true, pid})
     else
-      Logger.warn "#{pid_str} on #{node} isn't a pid, can't trace it."
+      Logger.warn "#{pid_str} on #{a_node} isn't a pid, can't trace it."
     end
   end
 
-  def stop_msg_trace_all(node) do
-    GenServer.call({__MODULE__, node}, :stop_trace_msg_all)
+  def stop_msg_trace_all(a_node) do
+    GenServer.call({__MODULE__, a_node}, :stop_trace_msg_all)
   end
 
   #
   # ------- Erlang Functions Only Zone -------
   #
-  # Code below can't contain any Elixir-specific functions, since it should be able to run on
-  # non-Elixir nodes. Sorry that this module is so gnarly, the :lists module loves to put the
-  # list at the end of the arguments, so it doesn't look like nice Elixir. :(
+  # Code below can't contain any Elixir-specific functions, since it should be
+  # able to run on non-Elixir nodes. Sorry that this module is so gnarly,
+  # the :lists module loves to put the list at the end of the arguments,
+  # so it doesn't look like nice Elixir. :(
   #
-  # Maybe in the future, it can be refactored with a pipeline that does the second-argument sugar.
-  # (or maybe just rpc remote nodes for data and do the collection wrangling on the local node)
+  # Maybe in the future, it can be refactored with a pipeline that does the
+  # second-argument sugar. (or maybe just rpc remote nodes for data and
+  # do the collection wrangling on the local node)
   #
 
   def init([visualizer_node]) do
@@ -52,50 +55,48 @@ defmodule Visualixir.Tracer do
   end
 
   def handle_call(:stop_trace_msg_all, _from, visualizer_node) do
-    :lists.foreach(&:erlang.trace(&1, false, [:send, :receive]), :erlang.processes)
+    :lists.foreach(&:erlang.trace(&1, false, [:send, :receive]),
+                                  :erlang.processes)
 
     {:reply, :ok, visualizer_node}
   end
 
   def handle_info({:trace, _spawner_pid, :spawn, pid, _mfa}, visualizer_node) do
-    :rpc.call(visualizer_node, TraceChannel, :announce_spawn, [:erlang.node, map_pids_to_info([pid])])
-
+    :rpc.call(visualizer_node, TraceChannel, :announce_spawn,
+              [:erlang.node, map_pids_to_info([pid])])
     {:noreply, visualizer_node}
   end
 
   def handle_info({:trace, pid, :exit, _reason}, visualizer_node) do
-    :rpc.call(visualizer_node, TraceChannel, :announce_exit, [:erlang.node, pid_to_binary(pid)])
-
+    :rpc.call(visualizer_node, TraceChannel, :announce_exit,
+              [:erlang.node, pid_to_binary(pid)])
     {:noreply, visualizer_node}
   end
 
   def handle_info({:trace, from_pid, :link, to_pid}, visualizer_node) do
     link = :lists.sort(:lists.map(&pid_to_binary/1, [from_pid, to_pid]))
-    :rpc.call(visualizer_node, TraceChannel, :announce_link, [:erlang.node, link])
-
+    :rpc.call(visualizer_node, TraceChannel, :announce_link,
+              [:erlang.node, link])
     {:noreply, visualizer_node}
   end
 
   # ignore ports, the gui knows when to unlink them
   def handle_info({:trace, from_pid, :unlink, to_pid}, visualizer_node) when is_pid(to_pid) do
     link = :lists.sort(:lists.map(&pid_to_binary/1, [from_pid, to_pid]))
-    :rpc.call(visualizer_node, TraceChannel, :announce_unlink, [:erlang.node, link])
-
+    :rpc.call(visualizer_node, TraceChannel, :announce_unlink,
+              [:erlang.node, link])
     {:noreply, visualizer_node}
   end
 
-  def handle_info({:trace, from_pid, :send, msg, to_pid}, visualizer_node) do
-    :rpc.call(visualizer_node, TraceChannel, :announce_msg, [:erlang.node,
-                                                             pid_to_binary(from_pid),
-                                                             pid_to_binary(to_pid),
-                                                             msg])
+  def handle_info({:trace, from, :send, msg, to}, visualizer_node) do
+    :rpc.call(visualizer_node, TraceChannel, :announce_msg,
+              [:erlang.node, pid_to_binary(from), pid_to_binary(to), msg])
     {:noreply, visualizer_node}
   end
 
   def handle_info(_msg, state) do
     {:noreply, state}
   end
-
 
   def initial_state do
     %{
@@ -116,7 +117,6 @@ defmodule Visualixir.Tracer do
     end, :erlang.processes)
     |> :lists.usort
   end
-
 
   defp pid_to_binary(pid) when is_pid(pid) do
     "#PID" <> (pid |> :erlang.pid_to_list |> :erlang.list_to_binary)
@@ -167,7 +167,8 @@ defmodule Visualixir.Tracer do
 
   defp process_being_msg_traced(pid) when is_pid(pid) do
     case :erlang.trace_info(pid, :flags) do
-      {:flags, flags} -> :lists.member(:receive, flags) || :lists.member(:send, flags)
+      {:flags, flags} ->
+        :lists.member(:receive, flags) || :lists.member(:send, flags)
       _ -> false
     end
   end

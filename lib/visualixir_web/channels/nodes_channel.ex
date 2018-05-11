@@ -28,7 +28,6 @@ defmodule VisualixirWeb.NodesChannel do
   end
   def handle_in("cleanup", _node, socket), do: {:noreply, socket}
 
-
   defp nodes_msg do
     %{nodes: Node.list(:known)}
   end
