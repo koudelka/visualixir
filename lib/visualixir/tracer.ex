@@ -3,6 +3,10 @@ defmodule Visualixir.Tracer do
   alias Visualixir.TraceChannel
   require Logger
 
+  @moduledoc """
+  GenServer used for tracing messages between processes on a specific node.
+  """
+
   def start(node) do
     Node.spawn_link(node, :gen_server, :start, [{:local, __MODULE__}, __MODULE__, [Node.self], []])
   end
@@ -66,7 +70,7 @@ defmodule Visualixir.Tracer do
   end
 
   def handle_info({:trace, from_pid, :link, to_pid}, visualizer_node) do
-    link = :lists.map(&pid_to_binary/1, [from_pid, to_pid]) |> :lists.sort
+    link = :lists.sort(:lists.map(&pid_to_binary/1, [from_pid, to_pid]))
     :rpc.call(visualizer_node, TraceChannel, :announce_link, [:erlang.node, link])
 
     {:noreply, visualizer_node}
@@ -74,7 +78,7 @@ defmodule Visualixir.Tracer do
 
   # ignore ports, the gui knows when to unlink them
   def handle_info({:trace, from_pid, :unlink, to_pid}, visualizer_node) when is_pid(to_pid) do
-    link = :lists.map(&pid_to_binary/1, [from_pid, to_pid]) |> :lists.sort
+    link = :lists.sort(:lists.map(&pid_to_binary/1, [from_pid, to_pid]))
     :rpc.call(visualizer_node, TraceChannel, :announce_unlink, [:erlang.node, link])
 
     {:noreply, visualizer_node}
@@ -108,7 +112,7 @@ defmodule Visualixir.Tracer do
                 :undefined      -> []
               end
 
-      :lists.map( &:lists.sort([pid_to_binary(pid), pid_to_binary(&1)]), links )
+      :lists.map(&:lists.sort([pid_to_binary(pid), pid_to_binary(&1)]), links)
     end, :erlang.processes)
     |> :lists.usort
   end

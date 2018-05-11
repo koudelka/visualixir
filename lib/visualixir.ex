@@ -1,6 +1,11 @@
 defmodule Visualixir do
   use Application
 
+  @moduledoc """
+  Top level application for this project.
+  Starts the supervisor tree.
+  """
+
   # See http://elixir-lang.org/docs/stable/elixir/Application.html
   # for more information on OTP Applications
   def start(_type, _args) do

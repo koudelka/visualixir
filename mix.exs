@@ -35,7 +35,8 @@ defmodule Visualixir.Mixfile do
       {:phoenix, "~> 1.3"},
       {:phoenix_html, "~> 2.11"},
       {:phoenix_live_reload, "~> 1.1", only: :dev},
-      {:cowboy, "~> 1.0"}
+      {:cowboy, "~> 1.0"},
+      {:credo, "~> 0.9.1", only: [:dev, :test], runtime: false},
     ]
   end
 end

@@ -4,6 +4,10 @@ defmodule VisualixirWeb.TraceChannel do
   alias VisualixirWeb.Endpoint
   alias Phoenix.Socket
 
+  @moduledoc """
+  Channel for communicating messages between processes to clients subscribed to updates.
+  """
+
   def join("trace:" <> node, _auth_msg, socket) do
     node = String.to_atom(node)
     Tracer.send_module(node)
