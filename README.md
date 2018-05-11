@@ -1,5 +1,7 @@
 # Visualixir
 
+[![Build Status](https://travis-ci.org/koudelka/visualixir.svg?branch=master)](https://travis-ci.org/koudelka/visualixir)
+
 Visualixir is a toy process visualizer for remote BEAM nodes, written in Phoenix/Elixir/d3, with live message sequence charts.
 
 It's largely intended as a teaching tool, to give newer BEAM programmers a look into the process ecosystem living inside their nodes. However, it may prove of some amusement/use to more experienced folks (it's kinda neat to trace `iex` and the io system).
@@ -16,7 +18,7 @@ Here's Visualixir tracing some messages through the [Riemann](https://github.com
 
 1. Clone this repository.
 2. Compile: `mix deps.get && mix compile && npm install`
-3. Start 'er up: `elixir --sname visualixir --hidden -S mix phoenix.server`
+3. Start 'er up: `elixir --sname visualixir --hidden -S mix phx.server`
 4. Navigate to [the GUI](http://localhost:4000)
 
 If you want to visualize other BEAM nodes, you'll need to start them up with the `--sname <unique_name_here>` option.
