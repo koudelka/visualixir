@@ -19,6 +19,6 @@ script:
   - mix credo --strict
   - mix test
 #  - dialyzer --no_check_plt --plt $PLT_LOCATION --no_native _build/test/lib/xml_parsec/ebin
-#  - mix coveralls.travis
+  - mix coveralls.travis
 
 sudo: false
