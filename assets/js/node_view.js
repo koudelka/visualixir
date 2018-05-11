@@ -1,6 +1,6 @@
-import Graph from "web/static/js/graph";
-import MessageSequence from "web/static/js/message_sequence";
-import Log from "web/static/js/log";
+import Graph from "./graph.js";
+import MessageSequence from "./message_sequence.js";
+import Log from "./log.js";
 
 export default class {
   constructor(node, graph_container, msg_seq_container, log_container) {

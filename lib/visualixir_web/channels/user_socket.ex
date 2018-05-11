@@ -1,14 +1,12 @@
-defmodule Visualixir.UserSocket do
+defmodule VisualixirWeb.UserSocket do
   use Phoenix.Socket
 
   ## Channels
-  # channel "rooms:*", Visualixir.RoomChannel
-  channel "trace:*", Visualixir.TraceChannel
-  channel "nodes", Visualixir.NodesChannel
+  channel "trace:*", VisualixirWeb.TraceChannel
+  channel "nodes", VisualixirWeb.NodesChannel
 
   ## Transports
   transport :websocket, Phoenix.Transports.WebSocket
-  # transport :longpoll, Phoenix.Transports.LongPoll
 
   # Socket params are passed from the client and can
   # be used to verify and authenticate a user. After

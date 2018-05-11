@@ -1,9 +1,8 @@
-import "deps/phoenix_html/web/static/js/phoenix_html";
+import "phoenix_html";
+import {Socket} from "phoenix";
 
-import {Socket} from "deps/phoenix/web/static/js/phoenix";
-
-import NodeSelector from "./node_selector";
-import NodeView from "./node_view";
+import NodeSelector from "./node_selector.js";
+import NodeView from "./node_view.js";
 
 
 class App {

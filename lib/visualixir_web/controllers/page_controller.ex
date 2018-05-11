@@ -1,4 +1,4 @@
-defmodule Visualixir.PageController do
+defmodule VisualixirWeb.PageController do
   use Visualixir.Web, :controller
 
   def index(conn, _params) do

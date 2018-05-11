@@ -1,7 +1,7 @@
-defmodule Visualixir.TraceChannel do
+defmodule VisualixirWeb.TraceChannel do
   use Visualixir.Web, :channel
   alias Visualixir.Tracer
-  alias Visualixir.Endpoint
+  alias VisualixirWeb.Endpoint
   alias Phoenix.Socket
 
   def join("trace:" <> node, _auth_msg, socket) do
@@ -24,7 +24,7 @@ defmodule Visualixir.TraceChannel do
     {:noreply, socket}
   end
 
-  def handle_in("cleanup", node, socket), do: {:noreply, socket}
+  def handle_in("cleanup", _node, socket), do: {:noreply, socket}
 
   def announce_spawn(node, pid_map) do
     Endpoint.broadcast! "trace:#{node}", "spawn", pid_map

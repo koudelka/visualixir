@@ -1,4 +1,4 @@
-defmodule Visualixir.Router do
+defmodule VisualixirWeb.Router do
   use Visualixir.Web, :router
 
   pipeline :browser do
@@ -13,7 +13,7 @@ defmodule Visualixir.Router do
     plug :accepts, ["json"]
   end
 
-  scope "/", Visualixir do
+  scope "/", VisualixirWeb do
     pipe_through :browser # Use the default browser stack
 
     get "/", PageController, :index

@@ -1,3 +1,3 @@
-defmodule Visualixir.PageViewTest do
-  use Visualixir.ConnCase, async: true
+defmodule VisualixirWeb.PageViewTest do
+  use VisualixirWeb.ConnCase, async: true
 end

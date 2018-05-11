@@ -59,7 +59,7 @@ defmodule Visualixir.Tracer do
     {:noreply, visualizer_node}
   end
 
-  def handle_info({:trace, pid, :exit, reason}, visualizer_node) do
+  def handle_info({:trace, pid, :exit, _reason}, visualizer_node) do
     :rpc.call(visualizer_node, TraceChannel, :announce_exit, [:erlang.node, pid_to_binary(pid)])
 
     {:noreply, visualizer_node}
@@ -88,7 +88,7 @@ defmodule Visualixir.Tracer do
     {:noreply, visualizer_node}
   end
 
-  def handle_info(msg, state) do
+  def handle_info(_msg, state) do
     {:noreply, state}
   end
 
@@ -97,7 +97,7 @@ defmodule Visualixir.Tracer do
     %{
       pids: map_pids_to_info(:erlang.processes),
       ports: map_pids_to_info(:erlang.ports),
-      links: all_links
+      links: all_links()
     }
   end
 
@@ -178,7 +178,7 @@ defmodule Visualixir.Tracer do
                              msg_traced: process_being_msg_traced(pid)}}
     end, pids)
 
-    :lists.filter(fn {pid, %{type: type}} -> type != :dead end, pids)
+    :lists.filter(fn {_pid, %{type: type}} -> type != :dead end, pids)
     |> :maps.from_list
   end
 
