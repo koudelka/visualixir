@@ -1,0 +1,24 @@
+language: elixir
+elixir:
+  - 1.5.0
+  - 1.6.0
+
+otp_release:
+  - 19.0
+  - 20.0
+
+env:
+  - MIX_ENV=test
+
+#before_script:
+#  - export PLT_FILENAME=elixir-${TRAVIS_ELIXIR_VERSION}_${TRAVIS_OTP_RELEASE}.plt
+#  - export PLT_LOCATION=/home/travis/$PLT_FILENAME
+#  - wget -O $PLT_LOCATION https://raw.github.com/danielberkompas/travis_elixir_plts/master/$PLT_FILENAME
+script:
+  - mix do deps.get, deps.compile
+#  - mix credo --strict
+  - mix test
+#  - dialyzer --no_check_plt --plt $PLT_LOCATION --no_native _build/test/lib/xml_parsec/ebin
+#  - mix coveralls.travis
+
+sudo: false
