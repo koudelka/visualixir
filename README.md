@@ -15,7 +15,7 @@ Here's Visualixir tracing some messages through the [Riemann](https://github.com
 ## Getting Going
 
 1. Clone this repository.
-2. Compile: `mix deps.get && mix compile && npm install`
+2. Compile: `mix deps.get && mix compile && cd assets && npm install`
 3. Start 'er up: `elixir --sname visualixir --hidden -S mix phoenix.server`
 4. Navigate to [the GUI](http://localhost:4000)
 
