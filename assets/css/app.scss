@@ -1,4 +1,5 @@
 /*!
+
  * Bootstrap v3.1.1 (http://getbootstrap.com)
  * Copyright 2011-2014 Twitter, Inc.
  * Licensed under MIT (https://github.com/twbs/bootstrap/blob/master/LICENSE)
@@ -16,31 +17,31 @@ html, body {
 }
 
 
-g.node circle {
+g.process circle {
   stroke: black;
 }
 
-g.node.normal circle {
+g.process.normal circle {
   fill: steelblue;
 }
 
-g.node.supervisor circle {
+g.process.supervisor circle {
   fill: blue;
 }
 
-g.node.port circle {
+g.process.port circle {
   fill: lightblue;
 }
 
-g.node.dead circle {
+g.process.dead circle {
   fill: lightgrey;
 }
 
-g.node.msg_traced circle {
+g.process.msg_traced circle {
   stroke: red;
 }
 
-g.node {
+g.process {
   text.application_label {
     fill: green;
   }
@@ -67,26 +68,55 @@ g.node {
     fill: none;
     opacity: 1
   }
+
+  g.nodebackground {
+    polygon.nodebackground {
+      opacity: 0.25;
+      stroke-opacity: 0.25;
+      fill: steelblue;
+      stroke: steelblue;
+      stroke-dasharray: 10 5;
+      stroke-linejoin: round;
+    }
+
+    text {
+      pointer-events: none;
+      fill: white;
+      font: 90px sans-serif;
+    }
+  }
+
+  g#conversationgroup {
+    stroke: black;
+
+    rect {
+      fill: grey;
+      opacity: 0.5;
+    }
+
+    text {
+      stroke: none;
+    }
+  }
 }
 
-.left {
-  width: 50%;
+.full {
   height: 100%;
-  display: inline-block;
 }
 
 #msg_seq {
-  width: 49%;
+  width: 39%;
   height: 100%;
   border-left: 1px solid black;
   display: inline-block;
 
   g.actor text {
+      fill: white;
       font-size: 6pt !important;
   }
 
   g.actor line {
-    stroke: lightgray;
+    stroke: black;
     stroke-width: 1px;
   }
 
@@ -95,12 +125,12 @@ g.node {
   }
 
   g.message line {
-    stroke: black;
+    stroke: white;
     stroke-width: 1.5px;
   }
 
   g.message path {
-    stroke: black;
+    stroke: white;
     stroke-width: 1.5px;
   }
 }
@@ -144,7 +174,7 @@ g.node {
     width: 110px;
     height: 100px;
 
-    g.node {
+    g.process {
       text {
         pointer-events: none;
         font: 10px sans-serif;

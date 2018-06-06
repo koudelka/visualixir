@@ -1,22 +1,33 @@
 defmodule Visualixir.Tracer do
   use GenServer
-  alias VisualixirWeb.TraceChannel
+
   require Logger
 
+  alias VisualixirWeb.TraceChannel
+  alias Visualixir.Util
+
   def start(node) do
+    # visualixir node already has this module
+    if node != Node.self() do
+      Util.send_module(__MODULE__, node)
+    end
+
     Node.spawn_link(node, :gen_server, :start, [{:local, __MODULE__}, __MODULE__, [Node.self], []])
+  end
+
+  def stop(node) do
+    :ok = GenServer.stop({__MODULE__, node})
   end
 
   def initial_state(node) do
     :rpc.call(node, __MODULE__, :initial_state, [])
   end
 
-  def msg_trace(node, pid_str) do
-    pid = :rpc.call(node, __MODULE__, :pid_from_string, [pid_str])
+  def msg_trace(pid) do
     if is_pid(pid) do
-      GenServer.call({__MODULE__, node}, {:trace_msg, true, pid})
+      GenServer.call({__MODULE__, node(pid)}, {:trace_msg, true, pid})
     else
-      Logger.warn "#{pid_str} on #{node} isn't a pid, can't trace it."
+      Logger.warn "#{inspect pid} on isn't a pid, can't trace it."
     end
   end
 
@@ -37,6 +48,7 @@ defmodule Visualixir.Tracer do
 
   def init([visualizer_node]) do
     :erlang.trace(:all, true, [:procs])
+    :ok = :net_kernel.monitor_nodes(true)
 
     {:ok, visualizer_node}
   end
@@ -54,38 +66,65 @@ defmodule Visualixir.Tracer do
   end
 
   def handle_info({:trace, _spawner_pid, :spawn, pid, _mfa}, visualizer_node) do
-    :rpc.call(visualizer_node, TraceChannel, :announce_spawn, [:erlang.node, map_pids_to_info([pid])])
+    pid_info = map_pids_to_info([pid])
+
+    if !Enum.empty?(pid_info) do
+      :rpc.call(visualizer_node, TraceChannel, :announce_spawn, [pid_info])
+    end
 
     {:noreply, visualizer_node}
   end
 
   def handle_info({:trace, pid, :exit, _reason}, visualizer_node) do
-    :rpc.call(visualizer_node, TraceChannel, :announce_exit, [:erlang.node, pid_to_binary(pid)])
+    :rpc.call(visualizer_node, TraceChannel, :announce_exit, [pid])
 
     {:noreply, visualizer_node}
   end
 
+  # if a pid has only one link now, it had zero before this event
   def handle_info({:trace, from_pid, :link, to_pid}, visualizer_node) do
-    link = :lists.map(&pid_to_binary/1, [from_pid, to_pid]) |> :lists.sort
-    :rpc.call(visualizer_node, TraceChannel, :announce_link, [:erlang.node, link])
+    msg = %{from: from_pid,
+            from_was_unlinked: length(links(from_pid)) == 1,
+            to: to_pid,
+            to_was_unlinked: length(links(to_pid)) == 1}
+    :rpc.call(visualizer_node, TraceChannel, :announce_link, [msg])
 
     {:noreply, visualizer_node}
   end
 
-  # ignore ports, the gui knows when to unlink them
-  def handle_info({:trace, from_pid, :unlink, to_pid}, visualizer_node) when is_pid(to_pid) do
-    link = :lists.map(&pid_to_binary/1, [from_pid, to_pid]) |> :lists.sort
-    :rpc.call(visualizer_node, TraceChannel, :announce_unlink, [:erlang.node, link])
+  def handle_info({:trace, from_pid, :unlink, to_pid}, visualizer_node) do
+    msg = %{from: from_pid,
+            from_any_links: length(links(from_pid)) > 0,
+            to: to_pid,
+            to_any_links: length(links(to_pid)) > 0}
+    :rpc.call(visualizer_node, TraceChannel, :announce_unlink, [msg])
 
     {:noreply, visualizer_node}
   end
 
   def handle_info({:trace, from_pid, :send, msg, to_pid}, visualizer_node) do
-    :rpc.call(visualizer_node, TraceChannel, :announce_msg, [:erlang.node,
-                                                             pid_to_binary(from_pid),
-                                                             pid_to_binary(to_pid),
+    to_pid =
+      case to_pid do
+        {name, node} ->
+          :rpc.call(node, :erlang, :whereis, [name])
+        pid when is_pid(pid) ->
+          pid
+        name ->
+          :erlang.whereis(name)
+      end
+
+    :rpc.call(visualizer_node, TraceChannel, :announce_msg, [from_pid,
+                                                             to_pid,
                                                              msg])
     {:noreply, visualizer_node}
+  end
+
+  def handle_info({:nodedown, visualizer_node}, visualizer_node) do
+    :erlang.display('[Visualixir] Lost connection to visualizer node, purging Tracer module.')
+
+    Util.cleanup()
+
+    {:stop, :normal, visualizer_node}
   end
 
   def handle_info(_msg, state) do
@@ -94,50 +133,40 @@ defmodule Visualixir.Tracer do
 
 
   def initial_state do
-    %{
-      pids: map_pids_to_info(:erlang.processes),
-      ports: map_pids_to_info(:erlang.ports),
-      links: all_links()
-    }
+    %{pids: :lists.merge(:erlang.processes, :erlang.ports) |> map_pids_to_info}
   end
 
   def all_links do
     :lists.flatmap(fn pid ->
-      links = case :erlang.process_info(pid, :links) do
+      links = case process_info(pid, :links) do
                 {:links, links} -> links
                 :undefined      -> []
               end
 
-      :lists.map( &:lists.sort([pid_to_binary(pid), pid_to_binary(&1)]), links )
+      :lists.map( &:lists.sort([pid, &1]), links )
     end, :erlang.processes)
     |> :lists.usort
   end
 
-
   defp pid_to_binary(pid) when is_pid(pid) do
-    "#PID" <> (pid |> :erlang.pid_to_list |> :erlang.list_to_binary)
+    pid |> :erlang.pid_to_list |> :erlang.list_to_binary
   end
 
   defp pid_to_binary(port) when is_port(port) do
     port |> :erlang.port_to_list |> :erlang.list_to_binary
   end
 
-  # the msg tracer seems to give us back the registered name
-  defp pid_to_binary(atom) when is_atom(atom) do
-    atom |> :erlang.whereis |> pid_to_binary
-  end
-
   defp pid_name(pid) when is_pid(pid) do
-    case :erlang.process_info(pid, :registered_name) do
-      {:registered_name, name} -> name |> :erlang.atom_to_binary(:utf8)
-      _                        -> nil
+    case process_info(pid, :registered_name) do
+      {:registered_name, name} -> :erlang.atom_to_binary(name, :utf8)
+      _ -> pid_to_binary(pid)
     end
   end
 
   defp pid_name(port) when is_port(port) do
     case :erlang.port_info(port, :name) do
       {:name, name} -> name |> :erlang.list_to_binary
-      _             -> nil
+      _ -> pid_to_binary(port)
     end
   end
 
@@ -147,19 +176,34 @@ defmodule Visualixir.Tracer do
       {_pid, app} -> app
     end
   end
-
-  defp application(port) when is_port(port) do
-    nil
-  end
+  defp application(port) when is_port(port), do: nil
 
   defp process_type(pid) when is_pid(pid) do
-    case :erlang.process_info(pid, :dictionary) do
+    case process_info(pid, :dictionary) do
       :undefined -> :dead
-      {_, [{_, _}, "$initial_call": {:supervisor, _, _}]} -> :supervisor
+      {:dictionary, dictionary} ->
+        case :lists.keyfind(:"$initial_call", 1, dictionary) do
+          {_, {:supervisor, _, _}} -> :supervisor
+          _ -> :normal
+        end
       _ -> :normal
     end
   end
   defp process_type(port) when is_port(port), do: :port
+
+  defp links(pid) when is_pid(pid) do
+    case process_info(pid, :links) do
+      {:links, links} -> links
+      _ -> []
+    end
+  end
+
+  defp links(port) when is_port(port) do
+    case :erlang.port_info(port, :links) do
+      {:links, links} -> links
+      _ -> []
+    end
+  end
 
   defp process_being_msg_traced(pid) when is_pid(pid) do
     case :erlang.trace_info(pid, :flags) do
@@ -167,45 +211,27 @@ defmodule Visualixir.Tracer do
       _ -> false
     end
   end
-
   defp process_being_msg_traced(port) when is_port(port), do: false
 
   defp map_pids_to_info(pids) do
     pids = :lists.map(fn pid ->
-      {pid_to_binary(pid), %{name: pid_name(pid),
-                             type: process_type(pid),
-                             application: application(pid),
-                             msg_traced: process_being_msg_traced(pid)}}
+      {pid, %{name: pid_name(pid),
+              node: node(),
+              type: process_type(pid),
+              links: links(pid),
+              application: application(pid),
+              msg_traced: process_being_msg_traced(pid)}}
     end, pids)
 
     :lists.filter(fn {_pid, %{type: type}} -> type != :dead end, pids)
     |> :maps.from_list
   end
 
-  def pid_from_string("#PID" <> string) do
-    string
-    |> :erlang.binary_to_list
-    |> :erlang.list_to_pid
-  end
-
-  def pid_from_string(string) do
-    string
-    |> :erlang.binary_to_list
-    |> :erlang.list_to_atom
-    |> :erlang.whereis
-  end
-
-  #
-  # Remote node code (un)loading.
-  #
-
-  def send_module(node) do
-    {module, binary, file} = :code.get_object_code(__MODULE__)
-    :rpc.call(node, :code, :load_binary, [module, file, binary])
-  end
-
-  def cleanup(node) do
-    :rpc.call(node, :code, :delete, [__MODULE__])
-    :rpc.call(node, :code, :purge, [__MODULE__])
+  defp process_info(pid, key) do
+    try do
+      :erlang.process_info(pid, key)
+    rescue ArgumentError ->
+        nil
+    end
   end
 end

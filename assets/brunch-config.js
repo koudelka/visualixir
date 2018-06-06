@@ -18,7 +18,7 @@ exports.config = {
           'vendor/d3.min.js',
         ],
         after: [
-          'vendor/d3-msg-seq.min.js',
+          'vendor/d3-msg-seq.js',
         ]
       }
     },

@@ -1,8 +1,14 @@
-const PID_RADIUS = 5,
+import ClusterView from "./cluster_view.js";
+import MessageSequence from "./message_sequence.js";
+
+const ALPHA_DECAY = 0.015,
+      PID_RADIUS = 5,
       LABEL_OFFSET_X = 5,
       LABEL_OFFSET_Y = 7,
-      LINE_LENGTH = 25,
-      REPULSION = -100,
+      INVISIBLE_LINK_STRENGTH = 0.01,
+      LINK_LENGTH = 80,
+      REPULSION = -LINK_LENGTH,
+      CENTERING_STRENGTH = 0.017,
       ARROW_DX = 5,
       ARROW_DY = 3;
 
@@ -27,29 +33,109 @@ function arrow(x, y, slope, direction) {
 
 
 export default class {
-  constructor(container, node_view, pids) {
+  constructor(container, cluster_view) {
     this.container = container;
-    this.node_view = node_view;
+    this.cluster_view = cluster_view;
 
-    let zoom = d3.behavior.zoom()
-          .scaleExtent([0, 4])
-          .on("zoom", () =>
-              this.svg.attr("transform", "translate(" + d3.event.translate + ") scale(" + d3.event.scale + ")")
-             );
+    let zoom =
+        d3.zoom()
+        .scaleExtent([0.1, 3])
+        .filter(() => !d3.event.altKey)
+        .on("zoom", () => {
+          this.set_transform(d3.event.transform.x, d3.event.transform.y, d3.event.transform.k);
+        });
 
-    this.svg = d3.select(container.get(0))
+    let new_conversation,
+        new_conversation_group,
+        new_conversation_seq,
+        new_conversation_start = [0, 0];
+
+    let drag =
+        d3.drag()
+        .on("start", d => {
+          new_conversation_group = this.svg.select("#conversationgroup").append("g").attr("class", "conversation_group");
+          new_conversation = new_conversation_group.append("rect").attr("class", "selection");
+          new_conversation_seq = new_conversation_group.append("svg");
+
+          new_conversation_start = [d3.event.x, d3.event.y];
+
+          let start = this.transform_point(d3.event.x, d3.event.y);
+          new_conversation.attr("x", start.x);
+          new_conversation.attr("y", start.y);
+          new_conversation.attr("width", 0);
+          new_conversation.attr("height", 0);
+
+        })
+        .on("drag", d => {
+          let start_x = new_conversation_start[0],
+              start_y = new_conversation_start[1];
+          let width = (d3.event.x - start_x),
+              height = (d3.event.y - start_y);
+
+          let transformed_width = width / this.transform[2],
+              transformed_height = height / this.transform[2];
+
+          let new_conversation_seq_start = this.transform_point(start_x + width, start_y + height);
+          new_conversation_seq.attr("x", new_conversation_seq_start.x);
+          new_conversation_seq.attr("y", new_conversation_seq_start.y);
+
+          if (width >= 0) {
+            new_conversation.attr("width", transformed_width);
+            new_conversation_seq.attr("width", transformed_width * 3);
+          }
+
+          if (height >= 0) {
+            new_conversation.attr("height", transformed_height);
+            new_conversation_seq.attr("height", transformed_height * 3);
+          }
+        })
+        .on("end", d => {
+          let msg_seq = new MessageSequence(new_conversation_seq);
+          new_conversation_seq.node().message_sequence = msg_seq;
+        });
+
+    this.svg_element =
+      d3.select(container.get(0))
       .append("svg")
-      .attr("width", "100%")
-      .attr("height", "100%")
-      .call(zoom)
-      .append("g")
-      .attr("transform", "translate(0, 0)");
+      .node();
 
-    this.force = d3.layout.force()
-      .gravity(.05)
-      .distance(LINE_LENGTH)
-      .charge(REPULSION)
-      .size([this.container.innerWidth(), this.container.innerHeight()]);
+    this.svg =
+      d3.select(this.svg_element)
+        .attr("width", "100%")
+        .attr("height", "100%")
+        .call(zoom)
+        .call(drag)
+        .append("g");
+
+    // x, y, k
+    this.transform = null;
+    this.set_transform(0, 0, 1);
+
+
+    this.forceCenter = d3.forceCenter();
+    this.forceLink = d3.forceLink().distance(LINK_LENGTH);
+    this.forceInvisibleLink = d3.forceLink().strength(INVISIBLE_LINK_STRENGTH);
+    this.forceManyBody = d3.forceManyBody().strength(REPULSION);
+    this.forceCenter = d3.forceCenter(this.container.innerWidth() / 2, this.container.innerHeight() / 2);
+
+    this.forceSimulation =
+      d3.forceSimulation()
+      .force("link", this.forceLink)
+      .force("invisiblelink", this.forceInvisibleLink)
+      .force("charge", this.forceManyBody)
+      .force("center", this.forceCenter)
+      .force("x", d3.forceX().strength(CENTERING_STRENGTH))
+      .force("y", d3.forceY().strength(CENTERING_STRENGTH));
+
+    this.forceSimulation
+      .velocityDecay(0.2)
+      .alphaDecay(ALPHA_DECAY);
+
+    this.svg.append("g")
+      .attr("id", "nodebackgroundgroup");
+
+    this.svg.append("g")
+      .attr("id", "conversationgroup");
 
     this.svg.append("g")
       .attr("id", "msggroup");
@@ -58,60 +144,130 @@ export default class {
       .attr("id", "linkgroup");
 
     this.svg.append("g")
-      .attr("id", "nodegroup");
+      .attr("id", "invisiblelinkgroup");
 
-    // use ES6 Maps once they're better supported
-    // and generate `links` from the node tree
-    this.pids = pids;
+    this.svg.append("g")
+      .attr("id", "processgroup");
+
     this.links = {};
+    this.invisible_links = {}; // used to group unlinked (free-floating) pids near the "net_kernel" pid
     this.msgs = {};
+    this.conversations = {}; // process -> list of conversations
+    this.message_sequences = {}; // conversation -> MessageSequence
   }
+
+  transform_point(x, y) {
+    let point = this.svg_element.createSVGPoint();
+    point.x = x;
+    point.y = y;
+
+    let transformed = point.matrixTransform(this.svg.node().getScreenCTM().inverse());
+    return {
+      x: transformed.x,
+      y: transformed.y
+    };
+  }
+
+  set_transform(x, y, k) {
+    let translation = [Math.round(x), Math.round(y)];
+    this.transform = translation.concat(k);
+
+    this.svg.attr("transform", "translate(" + translation + ") scale(" + k + ")");
+  }
+
+  add_process_to_conversation(process_id, conversation) {
+    this.conversations[process_id] = this.conversations[process_id] || [];
+    this.conversations[process_id].push(conversation);
+  }
+
+  conversations_at_point(x, y) {
+    let that = this;
+    return this.svg.selectAll("g.conversation_group > rect.selection")
+      .filter(function(d, i) {
+        let bounds = this.getBoundingClientRect(),
+            upper_left = that.transform_point(bounds.x, bounds.y),
+            lower_right = that.transform_point(bounds.x + bounds.width, bounds.y + bounds.height);
+
+        let within_x = upper_left.x <= x && x <= lower_right.x,
+            within_y = upper_left.y <= y && y <= lower_right.y;
+
+        return within_x && within_y;
+      })
+      .select(function() {
+        return d3.select(this.parentNode).select("svg").node();
+      });
+  }
+
 
   link_id(from, to) {
-    return from + "-" + to;
+    return [from.id, to.id].sort().join("-");
   }
 
-  removeNode(pid) {
-    d3.values(pid.links).forEach(link => {
-      // when a process exits, its linked ports also exit
-      if(link.target.id.match(/#Port<[\d\.]+>/))
-        delete this.pids[link.target.id];
-
-      delete link.target.links[pid.id];
-      delete this.links[this.link_id(link.source.id, link.target.id)];
+  removeProcess(process) {
+    d3.values(process.links).forEach(linked_process => {
+      delete this.links[this.link_id(process, linked_process)];
     });
-  }
 
-  addLink(source_id, target_id) {
-    let source = this.pids[source_id],
-        target = this.pids[target_id];
+    let grouping_process = this.cluster_view.grouping_processes[process.node];
+    if (grouping_process) {
+      this.removeInvisibleLink(process, grouping_process);
+    }
 
-    if(source && target) {
-      let link = {"source": source, "target": target, "strength": 1},
-          id = this.link_id(source_id, target_id);
-
-      this.links[id] = link;
-      source.links[target_id] = target.links[source_id] = link;
+    if (process == grouping_process) {
+      d3.keys(process.invisible_links).forEach(other_process => {
+        this.removeInvisibleLink(process, other_process);
+      });
     }
   }
 
-  removeLink(source_id, target_id) {
-    let id = this.link_id(source_id, target_id),
-        source = this.pids[source_id],
-        target = this.pids[target_id];
+  addLink(source, target) {
+    if(source && target) {
+      let link = {"source": source, "target": target},
+          id = this.link_id(source, target);
+
+      this.links[id] = link;
+    }
+  }
+
+  addInvisibleLink(source, target) {
+    if(source && target) {
+      let link = {"source": source, "target": target},
+          id = this.link_id(source, target);
+
+      this.invisible_links[id] = link;
+    }
+  }
+
+  removeInvisibleLink(source, target) {
+    if(source && target) {
+      let id = this.link_id(source, target);
+
+      delete this.invisible_links[id];
+    }
+  }
+
+  removeLink(source, target) {
+    let id = this.link_id(source, target);
 
     delete this.links[id];
   }
 
-  addMsg(source_id, target_id) {
-    let source = this.pids[source_id],
-        target = this.pids[target_id];
+  addMsg(source, target, message) {
+    let id = source.id + "-" + target.id + "-" + Math.random(),
+        msg = {id: id, source: source, target: target, message: message};
 
-    if (source && target) {
-      let id = source_id + "-" + target_id + "-" + Math.random(),
-          msg = {id: id, "source": source, "target": target};
-      this.msgs[id] = msg;
-    }
+    let all_conversations = (this.conversations[source.id] || []).concat(this.conversations[target.id] || []);
+    let message_sequences = {};
+
+    all_conversations.forEach(function (c) {
+      let id = c.message_sequence.id;
+      message_sequences[id] = c.message_sequence;
+    });
+    Object.values(message_sequences).forEach(function (m) {
+      m.addMessage(msg);
+    });
+
+    this.msgs[id] = msg;
   }
 
   drawMessageElements(message_els) {
@@ -143,88 +299,40 @@ export default class {
     d3.select("[id='"+ pid +"_label']").name(name);
   }
 
+  msgTraceProcess(d, node) {
+    d.msg_traced = true;
+    this.cluster_view.msgTracePID(d.id);
+    d3.select(node).classed("msg_traced", true);
+  }
+
   stopMsgTraceAll() {
-    d3.values(this.pids).forEach(pid => {
+    d3.values(this.cluster_view.processes).forEach(pid => {
       pid.msg_traced = false;
     });
   }
 
   update(restart_force) {
-    let pids_list = d3.values(this.pids),
+    let pids_list = d3.values(this.cluster_view.processes),
         links_list = d3.values(this.links),
+        invisible_links_list = d3.values(this.invisible_links),
         self = this;
 
-    let node_els = this.svg.select("#nodegroup").selectAll("g.node").data(pids_list, d => d.id),
-        link_els = this.svg.select("#linkgroup").selectAll("line.link").data(links_list, d => this.link_id(d.source.id, d.target.id)),
-        msg_els = this.svg.select("#msggroup").selectAll("path.msg").data(d3.values(this.msgs), d => d.id);
+    let pids_by_node = d3.nest().key(d => d.node).map(pids_list),
+        nodes_list = pids_by_node.keys();
 
-    this.force.nodes(pids_list)
-      .links(links_list);
+    let processes = this.svg.select("#processgroup").selectAll("g.process").data(pids_list, d => d.id),
+        node_bgs = this.svg.select("#nodebackgroundgroup").selectAll("g.nodebackground").data(nodes_list, d => d),
+        links = this.svg.select("#linkgroup").selectAll("line.link").data(links_list, d => this.link_id(d.source, d.target)),
+        invisible_links = this.svg.select("#invisiblelinkgroup").selectAll("line.link").data(invisible_links_list, d => this.link_id(d.source, d.target)),
+        msgs = this.svg.select("#msggroup").selectAll("path.msg").data(d3.values(this.msgs), d => d.id);
 
-    let drag = this.force.drag()
-          .on("dragstart", d => {
-            d3.event.sourceEvent.stopPropagation();
-          })
-          .on("dragend", d => {
-            d.fixed = true;
-          });
+    this.forceSimulation.nodes(pids_list);
+    this.forceSimulation.force("link").links(links_list);
+    this.forceSimulation.force("invisiblelink").links(invisible_links_list);
 
-    let node = node_els.enter().append("g")
-          .attr("class", d => "node " + d.type)
-          .call(drag);
+    // Processes
 
-    node_els.classed("msg_traced", d => d.msg_traced);
-
-    node.on("click", function(d) {
-          if (d3.event.defaultPrevented)
-            return;
-
-          if (d3.event.altKey) {
-            d.msg_traced = true;
-            self.node_view.msgTracePID(d.id);
-            d3.select(this).classed("msg_traced", true);
-          }
-        })
-        .on("dblclick", d => {
-          d.fixed = false;
-          d3.event.stopPropagation();
-        });
-
-    node.append("circle")
-      .attr("r", PID_RADIUS);
-
-    node.append("text")
-      .attr("id", n => n.id + "_label")
-      .attr("class", "pid_label")
-      .attr("dx", LABEL_OFFSET_X)
-      .attr("dy", LABEL_OFFSET_Y)
-      .text(n => n.name || n.id);
-
-    node.append("text")
-      .attr("id", n => n.id + "_app_label")
-      .attr("class", "application_label")
-      .attr("dx", LABEL_OFFSET_X)
-      .attr("dy", LABEL_OFFSET_Y * 2)
-      .text(n => n.application);
-
-    link_els.enter().append("line")
-      .attr("class", "link");
-
-    let new_msg_els = msg_els.enter().append("path")
-          .attr("class", "msg");
-
-    new_msg_els.transition()
-      .duration(2000)
-      .style("opacity", 0)
-      .each("end", d => delete this.msgs[d.id])
-      .remove();
-
-    // if the force layout has stopped moving, we'll statically draw the message curves.
-    if (this.force.alpha() <= 0)
-      this.drawMessageElements(msg_els);
-
-
-    node_els.exit()
+    processes.exit()
       .transition()
       .duration(200)
       .style("opacity", 0)
@@ -232,20 +340,183 @@ export default class {
       .selectAll("circle")
       .attr("class", "dead");
 
-    link_els.exit().remove();
+    let drag =
+        d3.drag()
+        .on("start", d => {
+          d3.event.sourceEvent.stopPropagation();
+          this.forceSimulation.restart();
+          this.forceSimulation.alpha(1.0);
+          d.fx = d.x;
+          d.fy = d.y;
+        })
+        .on("drag", d => {
+          d.fx = d3.event.x;
+          d.fy = d3.event.y;
+        })
+        .on("end", function(d) {
+          let conversations = self.conversations_at_point(d3.event.x, d3.event.y);
+          if (conversations.size() > 0) {
+            self.msgTraceProcess(d, this);
+            let id = this.id;
+            conversations.nodes().forEach(function (c) {
+              self.add_process_to_conversation(id, c);
+            });
+          }
+          d.fixed = true;
+        });
 
-    this.force.on("tick", () => {
-      link_els.attr("x1", d => d.source.x)
-        .attr("y1", d => d.source.y)
-        .attr("x2", d => d.target.x)
-        .attr("y2", d => d.target.y);
+    let new_processes =
+        processes.enter().append("g")
+        .attr("class", d => "process " + d.type)
+        .attr("id", d => d.id)
+        .call(drag);
 
-      this.drawMessageElements(msg_els);
+    processes = new_processes.merge(processes);
 
-      node_els.attr("transform", d => "translate(" + d.x + "," + d.y + ")");
+    processes.classed("msg_traced", d => d.msg_traced);
+
+    new_processes.on("click", function(d) {
+      if (d3.event.defaultPrevented)
+        return;
+
+      if (d3.event.altKey) {
+        self.msgTraceProcess(d, this);
+      }
+    })
+    .on("dblclick", d => {
+      d3.event.stopPropagation();
+      d.fixed = false;
+      d.fx = null;
+      d.fy = null;
+    });
+
+    new_processes.append("circle")
+      .attr("r", PID_RADIUS);
+
+    new_processes.append("text")
+      .attr("id", n => n.id + "_label")
+      .attr("class", "pid_label")
+      .attr("dx", LABEL_OFFSET_X)
+      .attr("dy", LABEL_OFFSET_Y)
+      .text(n => n.name);
+
+    new_processes.append("text")
+      .attr("id", n => n.id + "_app_label")
+      .attr("class", "application_label")
+      .attr("dx", LABEL_OFFSET_X)
+      .attr("dy", LABEL_OFFSET_Y * 2)
+      .text(n => n.application);
+
+    // Links
+
+    links.exit().remove();
+    var new_links =
+        links.enter().append("line")
+        .attr("class", "link");
+
+    links = new_links.merge(links);
+
+
+    invisible_links.exit().remove();
+    var new_invisible_links =
+        invisible_links.enter().append("line")
+        .attr("class", "link");
+
+    invisible_links = new_invisible_links.merge(invisible_links);
+
+    // Messages
+
+    let new_msgs = msgs.enter().append("path").attr("class", "msg");
+
+    new_msgs.each(d => {
+      let pid_box =
+        d3.select("[id='"+ d.source.id +"']")
+          .select("circle")
+          .node()
+          .getBoundingClientRect();
+
+      let x = pid_box.x + pid_box.width/2,
+          y = pid_box.y + pid_box.height/2;
+
+    });
+
+    new_msgs.transition()
+      .on("end", d => delete this.msgs[d.id])
+      .duration(2000)
+      .style("opacity", 0)
+      .remove();
+
+    msgs = msgs.merge(new_msgs);
+
+    // Node Backgrounds
+
+    node_bgs.exit()
+      // .transition()
+      // .duration(2000)
+      // .style("opacity", 0)
+      .remove();
+
+    let new_node_bgs =
+        node_bgs.enter()
+        .append("g")
+        .attr("class", "nodebackground")
+        .attr("node", d => d);
+
+    new_node_bgs
+        .append("polygon")
+        .attr("class", "nodebackground")
+        .attr("stroke-width", PID_RADIUS * 8);
+
+    new_node_bgs
+      .append("text")
+      .text(d => d.replace(/@.*/, ''));
+
+    node_bgs = node_bgs.merge(new_node_bgs);
+
+
+    // if the force layout has stopped moving, so the tick function wont be called, we'll statically draw the message curves.
+    if (this.forceSimulation.alpha() < ALPHA_DECAY)
+      this.drawMessageElements(msgs);
+
+    this.forceSimulation.on("tick", () => {
+      links
+        .attr("x1", d => Math.round(d.source.x))
+        .attr("y1", d => Math.round(d.source.y))
+        .attr("x2", d => Math.round(d.target.x))
+        .attr("y2", d => Math.round(d.target.y));
+
+      this.drawMessageElements(msgs);
+
+      processes.attr("transform", d => "translate(" + Math.round(d.x) + "," + Math.round(d.y) + ")");
+
+      pids_by_node.each((pids, node) => {
+        let points = pids.map(p => [p.x, p.y]),
+            hull = d3.polygonHull(points);
+
+        if (hull) {
+          hull = hull.map(p => [Math.round(p[0]), Math.round(p[1])]);
+
+          let hull_points_str = hull.map(point => point.join(" ")).join(", ");
+
+          let node_bg = node_bgs.filter("[node='" + node + "']");
+
+          node_bg
+            .select("polygon")
+            .attr("points", hull_points_str);
+
+          let centroid = d3.polygonCentroid(hull);
+
+          node_bg
+            .select("text")
+            .attr("transform", function(d) {
+              let bounding_box = this.getBBox();
+              return "translate(" + (centroid[0] - bounding_box.width/2) + "," + (centroid[1] - bounding_box.height/2) + ")";
+            });
+        }
+      });
     });
 
     if (restart_force)
-      this.force.start();
+      this.forceSimulation.alpha(1).restart();
   }
 }

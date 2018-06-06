@@ -1,7 +1,7 @@
 export default class {
   constructor(container) {
     this.container = container;
-    this.channel = socket.channel("nodes", {});
+    this.channel = window.socket.channel("nodes", {});
 
     let updateNodes = msg => {
       this.update(msg.nodes);
@@ -21,25 +21,38 @@ export default class {
   }
 
   update(nodes) {
+    let self = this;
     let node_els = d3.select(this.container.find("ul").get(0)).selectAll("li.node_name").data(nodes);
 
-    let node = node_els.enter().insert("li")
-          .attr("class", "node_name")
-          .html(n => n)
-          .on("click", function(d) {
-            $(this).addClass("selected");
-            $(this).siblings().removeClass("selected");
-            app.switchToNode(d);
-          });
-
     node_els.exit().remove();
+
+    let node =
+        node_els.enter()
+        .insert("li")
+        .attr("class", "node_name")
+        .html(n => n)
+        .on("click", function(d) {
+          if ($(this).hasClass("selected")) {
+            $(this).removeClass("selected");
+            self.cleanupNode(d);
+          } else {
+            $(this).addClass("selected");
+            self.visualizeNode(d);
+          }
+        });
+
+    node_els.merge(node);
   }
 
   add(node) {
     this.channel.push("add", node);
   }
 
-  cleanup(node) {
+  visualizeNode(node) {
+    this.channel.push("visualize", node);
+  }
+
+  cleanupNode(node) {
     this.channel.push("cleanup", node);
   }
 }
