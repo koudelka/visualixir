@@ -2,7 +2,7 @@ defmodule VisualixirWeb.UserSocket do
   use Phoenix.Socket
 
   ## Channels
-  channel "trace:*", VisualixirWeb.TraceChannel
+  channel "trace", VisualixirWeb.TraceChannel
   channel "nodes", VisualixirWeb.NodesChannel
 
   ## Transports

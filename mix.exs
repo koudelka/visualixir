@@ -5,9 +5,9 @@ defmodule Visualixir.Mixfile do
     [
       app: :visualixir,
       version: "0.1.0",
-      elixir: "~> 1.0",
+      elixir: "~> 1.5",
       elixirc_paths: elixirc_paths(Mix.env()),
-      elixirc_options: [warnings_as_errors: true],
+      # elixirc_options: [warnings_as_errors: true],
       compilers: [:phoenix] ++ Mix.compilers(),
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,

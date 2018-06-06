@@ -29,7 +29,7 @@ export default class {
           .on("click", function(d) {
             $(this).addClass("selected");
             $(this).siblings().removeClass("selected");
-            app.switchToNode(d);
+            app.addNode(d);
           });
 
     node_els.exit().remove();

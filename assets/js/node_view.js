@@ -3,9 +3,8 @@ import MessageSequence from "./message_sequence.js";
 import Log from "./log.js";
 
 export default class {
-  constructor(node, graph_container, msg_seq_container, log_container) {
-    this.node = node;
-    this.channel = socket.channel("trace:"+ node, {});
+  constructor(graph_container, msg_seq_container, log_container) {
+    this.channels = {};
     this.pids = {};
 
     graph_container.empty();
@@ -16,9 +15,21 @@ export default class {
     this.msg_seq = new MessageSequence(msg_seq_container);
     this.logger = new Log(log_container);
 
+  }
+
+  addNode(node) {
+    this.channel = window.socket.channel("trace", {node: node});
+
+    this.channel.join().receive("ok", msg => {
+      $.each(msg.pids, (pid, info) => {this.addProcess(pid, info);});
+      $.each(msg.ports, (port, info) => this.addProcess(port, info));
+      msg.links.forEach(link => this.graph.addLink(link[0], link[1]));
+      this.graph.update(true);
+    });
+
     this.channel.on("spawn", msg => {
       $.each(msg, (pid, info) => {
-        this.addNode(pid, info);
+        this.addProcess(pid, info);
         this.logger.logOnePidLine(this.pids[pid], "spawn");
       });
       this.graph.update(true);
@@ -27,7 +38,7 @@ export default class {
     this.channel.on("exit", msg => {
       if (this.pids[msg.pid]) {
         this.logger.logOnePidLine(this.pids[msg.pid], "exit");
-        this.removeNode(msg.pid);
+        this.removeProcess(msg.pid);
         this.graph.update(true);
       }
     });
@@ -62,7 +73,7 @@ export default class {
       var from = this.pids[msg.from_pid],
           to = this.pids[msg.to_pid];
 
-      if (from && to ) {
+      if (from && to) {
         this.logger.logMsgLine(from, to, msg.msg);
         this.msg_seq.addMessage(from, to, msg.msg);
       }
@@ -70,25 +81,21 @@ export default class {
       this.graph.update(false);
     });
 
-    this.channel.join().receive("ok", msg => {
-      $.each(msg.pids, (pid, info) => this.addNode(pid, info));
-      $.each(msg.ports, (port, info) => this.addNode(port, info));
-      msg.links.forEach(link => this.graph.addLink(link[0], link[1]));
-      this.graph.update(true);
-    });
   }
 
-  addNode(id, info) {
+  addProcess(id, info) {
     let pid = {"id": id,
                links: {},
+               local_pid: info.local_pid,
                name: info.name,
+               node: info.node,
                application: info.application,
                type: info.type,
                msg_traced: info.msg_traced};
     this.pids[id] = pid;
   }
 
-  removeNode(id) {
+  removeProcess(id) {
     if(!this.pids[id]) return;
 
     this.graph.removeNode(this.pids[id]);
@@ -96,9 +103,8 @@ export default class {
     delete this.pids[id];
   }
 
-
-  msgTracePID(pid) {
-    this.channel.push("msg_trace", pid);
+  msgTracePID(id) {
+    this.channel.push("msg_trace", id);
   }
 
   stopMsgTraceAll(node) {
@@ -110,4 +116,5 @@ export default class {
   cleanup() {
     this.channel.leave();
   }
+
 }
