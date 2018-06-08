@@ -2,32 +2,18 @@ import "phoenix_html";
 import {Socket} from "phoenix";
 
 import NodeSelector from "./node_selector.js";
-import NodeView from "./node_view.js";
+import ClusterView from "./cluster_view.js";
 
 
 class App {
   constructor(node_selector_container) {
     this.node_selector = new NodeSelector(node_selector_container, this.channel);
-    this.node_view = new NodeView($('#graph'), $('#msg_seq'), $('#log'));
+    this.cluster_view = new ClusterView($('#graph'), $('#msg_seq'), $('#log'));
     $('#stop_msg_tracing').click(e => {
-      if (this.node_view)
-        this.node_view.stopMsgTraceAll();
+      if (this.cluster_view)
+        this.cluster_view.stopMsgTraceAll();
     });
   }
-
-  // this should go away when the frontend supports watching multiple nodes
-  // switchToNode(node) {
-  //   if(this.node_view) {
-  //     this.node_view.cleanup();
-  //     this.node_selector.cleanup(this.node_view.node);
-  //   }
-  //   this.node_view = new NodeView(node, $('#graph'), $('#msg_seq'), $('#log'));
-  // }
-
-  addNode(node) {
-    this.node_view.addNode(node);
-  }
-
 }
 
 $( () => {

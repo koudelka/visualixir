@@ -4,25 +4,19 @@ defmodule VisualixirWeb.TraceChannel do
   alias VisualixirWeb.Endpoint
   alias Phoenix.Socket
 
-  def join("trace", %{"node" => node}, socket) do
-    node = String.to_atom(node)
+  @channel "trace"
 
-    if node != node() do
-      Tracer.send_module(node)
-    end
-
-    Tracer.start(node)
-
-    {:ok, initial_state(node), socket}
+  def join(@channel, %{}, socket) do
+    {:ok, nil, socket}
   end
 
-  def handle_in("msg_trace", pid_str, %Socket{topic: "trace"} = socket) do
+  def handle_in("msg_trace", pid_str, %Socket{topic: @channel} = socket) do
     pid_str |> pid_from_binary() |> Tracer.msg_trace
 
     {:noreply, socket}
   end
 
-  def handle_in("stop_msg_trace_all", _msg, %Socket{topic: "trace"} = socket) do
+  def handle_in("stop_msg_trace_all", _msg, %Socket{topic: @channel} = socket) do
     :erlang.nodes()
     |> Enum.each(&Tracer.stop_msg_trace_all/1)
 
@@ -31,34 +25,40 @@ defmodule VisualixirWeb.TraceChannel do
 
   def handle_in("cleanup", _node, socket), do: {:noreply, socket}
 
+  def announce_visualize(node) do
+    broadcast!("visualize_node", initial_state(node))
+  end
+
   def announce_spawn(pid_map) do
-    Endpoint.broadcast! "trace", "spawn", pid_keys_to_binary(pid_map)
+    broadcast!("spawn", pid_keys_to_binary(pid_map))
   end
 
   def announce_exit(pid) do
-    Endpoint.broadcast! "trace", "exit", %{pid: pid_to_binary(pid)}
+    broadcast!("exit", %{pid: pid_to_binary(pid)})
   end
 
   def announce_name(pid, name) do
-    Endpoint.broadcast! "trace", "name", %{pid: pid_to_binary(pid), name: name}
+    broadcast!("name", %{pid: pid_to_binary(pid), name: name})
   end
 
   # a list of links is a list of lists
   # [[pid1, pid2], [pid3, pid4], ...]
   def announce_links(links) do
-    Endpoint.broadcast! "trace", "links", %{links: pid_pairs_to_binary(links)}
+    broadcast!("links", %{links: pid_pairs_to_binary(links)})
   end
 
   def announce_link(link), do: announce_links([link])
 
   def announce_unlink(link) do
-    Endpoint.broadcast! "trace", "unlink", %{link: pid_pair_to_binary(link)}
+    broadcast!("unlink", %{link: pid_pair_to_binary(link)})
   end
 
   def announce_msg(from_pid, to_pid, msg) do
-    Endpoint.broadcast! "trace", "msg", %{from_pid: pid_to_binary(from_pid),
-                                          to_pid: pid_to_binary(to_pid),
-                                          msg: inspect(msg)}
+    broadcast!("msg", %{from_pid: pid_to_binary(from_pid), to_pid: pid_to_binary(to_pid), msg: inspect(msg)})
+  end
+
+  def broadcast!(type, msg) do
+    Endpoint.broadcast!(@channel, type, msg)
   end
 
 

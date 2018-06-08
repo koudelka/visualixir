@@ -27,9 +27,9 @@ function arrow(x, y, slope, direction) {
 
 
 export default class {
-  constructor(container, node_view, pids) {
+  constructor(container, cluster_view, pids) {
     this.container = container;
-    this.node_view = node_view;
+    this.cluster_view = cluster_view;
 
     let zoom = d3.behavior.zoom()
           .scaleExtent([0, 4])
@@ -181,7 +181,7 @@ export default class {
 
           if (d3.event.altKey) {
             d.msg_traced = true;
-            self.node_view.msgTracePID(d.id);
+            self.cluster_view.msgTracePID(d.id);
             d3.select(this).classed("msg_traced", true);
           }
         })
