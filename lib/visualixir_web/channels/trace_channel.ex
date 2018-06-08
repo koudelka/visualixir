@@ -10,7 +10,7 @@ defmodule VisualixirWeb.TraceChannel do
     {:ok, nil, socket}
   end
 
-  def handle_in("msg_trace", pid_str, %Socket{topic: @channel} = socket) do
+  def handle_in("msg_trace", pid_str, socket) do
     pid_str |> pid_from_binary() |> Tracer.msg_trace
 
     {:noreply, socket}
@@ -23,10 +23,12 @@ defmodule VisualixirWeb.TraceChannel do
     {:noreply, socket}
   end
 
-  def handle_in("cleanup", _node, socket), do: {:noreply, socket}
-
   def announce_visualize(node) do
     broadcast!("visualize_node", initial_state(node))
+  end
+
+  def announce_cleanup(node) do
+    broadcast!("cleanup_node", %{node: node})
   end
 
   def announce_spawn(pid_map) do

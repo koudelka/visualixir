@@ -4,7 +4,17 @@ defmodule Visualixir.Tracer do
   require Logger
 
   def start(node) do
+    # visualixir node already has this module
+    if node != Node.self() do
+      send_module(node)
+    end
+
     Node.spawn_link(node, :gen_server, :start, [{:local, __MODULE__}, __MODULE__, [Node.self], []])
+  end
+
+  def stop(node) do
+    :ok = GenServer.stop({__MODULE__, node})
+    cleanup(node)
   end
 
   def initial_state(node) do
@@ -12,8 +22,6 @@ defmodule Visualixir.Tracer do
   end
 
   def msg_trace(pid) do
-    IO.inspect pid
-    IO.inspect node(pid)
     if is_pid(pid) do
       GenServer.call({__MODULE__, node(pid)}, {:trace_msg, true, pid})
     else
@@ -113,35 +121,25 @@ defmodule Visualixir.Tracer do
     |> :lists.usort
   end
 
-  # this is a universal identifier, as opposed to a local identifier
-  # def pid_to_binary(pid) do
-  #   :erlang.atom_to_binary(node(), :utf8) <> local_pid_to_binary(pid)
-  # end
+  defp pid_to_binary(pid) when is_pid(pid) do
+    pid |> :erlang.pid_to_list |> :erlang.list_to_binary
+  end
 
-  # defp local_pid_to_binary(pid) when is_pid(pid) do
-  #   "#PID" <> (pid |> :erlang.pid_to_list |> :erlang.list_to_binary)
-  # end
-
-  # defp local_pid_to_binary(port) when is_port(port) do
-  #   port |> :erlang.port_to_list |> :erlang.list_to_binary
-  # end
-
-  # # the msg tracer seems to give us back the registered name
-  # defp local_pid_to_binary(atom) when is_atom(atom) do
-  #   atom |> :erlang.whereis |> local_pid_to_binary
-  # end
+  defp pid_to_binary(port) when is_port(port) do
+    port |> :erlang.port_to_list |> :erlang.list_to_binary
+  end
 
   defp pid_name(pid) when is_pid(pid) do
     case :erlang.process_info(pid, :registered_name) do
-      {:registered_name, name} -> name |> :erlang.atom_to_binary(:utf8)
-      _ -> nil
+      {:registered_name, name} -> :erlang.atom_to_binary(name, :utf8)
+      _ -> pid_to_binary(pid)
     end
   end
 
   defp pid_name(port) when is_port(port) do
     case :erlang.port_info(port, :name) do
       {:name, name} -> name |> :erlang.list_to_binary
-      _ -> nil
+      _ -> pid_to_binary(port)
     end
   end
 
@@ -197,7 +195,7 @@ defmodule Visualixir.Tracer do
   end
 
   def cleanup(node) do
-    :rpc.call(node, :code, :delete, [__MODULE__])
     :rpc.call(node, :code, :purge, [__MODULE__])
+    :rpc.call(node, :code, :delete, [__MODULE__])
   end
 end

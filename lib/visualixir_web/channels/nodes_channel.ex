@@ -5,8 +5,6 @@ defmodule VisualixirWeb.NodesChannel do
   alias VisualixirWeb.TraceChannel
   alias Visualixir.Tracer
 
-  @self Node.self |> Atom.to_string
-
   @channel "nodes"
 
   def join(@channel, _auth_msg, socket) do
@@ -29,11 +27,6 @@ defmodule VisualixirWeb.NodesChannel do
   def handle_in("visualize", node, socket) do
     node = String.to_atom(node)
 
-    # visualixir node already has this module
-    if node != node() do
-      Tracer.send_module(node)
-    end
-
     Tracer.start(node)
 
     TraceChannel.announce_visualize(node)
@@ -41,14 +34,17 @@ defmodule VisualixirWeb.NodesChannel do
     {:noreply, socket}
   end
 
-  def handle_in("cleanup", node, socket) when node != @self do
-    node |> String.to_atom |> Tracer.cleanup
+  def handle_in("cleanup", node, socket) do
+    node = String.to_atom(node)
+
     Logger.debug("[Visualixir] Telling node #{node} to clean up")
+
+    Tracer.stop(node)
+
+    TraceChannel.announce_cleanup(node)
 
     {:noreply, socket}
   end
-  def handle_in("cleanup", _node, socket), do: {:noreply, socket}
-
 
   defp nodes_msg do
     %{nodes: Node.list(:known)}

@@ -2,7 +2,7 @@ const MAX_LOG_LINES = 100;
 
 class OnePid {
   constructor(pid, type) {
-    this.pid = pid.name || pid.id;
+    this.pid = pid.name;
     this.type = type;
 
     switch (type) {
@@ -23,8 +23,8 @@ class OnePid {
 
 class TwoPid {
   constructor(from_pid, to_pid, type) {
-    this.from_pid = from_pid.name || from_pid.id;
-    this.to_pid = to_pid.name || to_pid.id;
+    this.from_pid = from_pid.name;
+    this.to_pid = to_pid.name;
     this.type = type;
 
     switch (type) {

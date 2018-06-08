@@ -176,19 +176,19 @@ export default class {
     node_els.classed("msg_traced", d => d.msg_traced);
 
     node.on("click", function(d) {
-          if (d3.event.defaultPrevented)
-            return;
+      if (d3.event.defaultPrevented)
+        return;
 
-          if (d3.event.altKey) {
-            d.msg_traced = true;
-            self.cluster_view.msgTracePID(d.id);
-            d3.select(this).classed("msg_traced", true);
-          }
-        })
-        .on("dblclick", d => {
-          d.fixed = false;
-          d3.event.stopPropagation();
-        });
+      if (d3.event.altKey) {
+        d.msg_traced = true;
+        self.cluster_view.msgTracePID(d.id);
+        d3.select(this).classed("msg_traced", true);
+      }
+    })
+    .on("dblclick", d => {
+      d.fixed = false;
+      d3.event.stopPropagation();
+    });
 
     node.append("circle")
       .attr("r", PID_RADIUS);
@@ -198,20 +198,26 @@ export default class {
       .attr("class", "pid_label")
       .attr("dx", LABEL_OFFSET_X)
       .attr("dy", LABEL_OFFSET_Y)
-      .text(n => n.name || n.id);
+      .text(n => n.name);
+
+    node.append("text")
+      .attr("id", n => n.id + "node_label")
+      .attr("class", "pid_label")
+      .attr("dx", LABEL_OFFSET_X)
+      .attr("dy", LABEL_OFFSET_Y * 2)
+      .text(n => n.node);
 
     node.append("text")
       .attr("id", n => n.id + "_app_label")
       .attr("class", "application_label")
       .attr("dx", LABEL_OFFSET_X)
-      .attr("dy", LABEL_OFFSET_Y * 2)
+      .attr("dy", LABEL_OFFSET_Y * 3)
       .text(n => n.application);
 
     link_els.enter().append("line")
       .attr("class", "link");
 
-    let new_msg_els = msg_els.enter().append("path")
-          .attr("class", "msg");
+    let new_msg_els = msg_els.enter().append("path").attr("class", "msg");
 
     new_msg_els.transition()
       .duration(2000)

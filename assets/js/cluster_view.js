@@ -22,6 +22,7 @@ export default class {
     // the function indirection here maintains "this" in the callback
     // there's got to be a better way...
     this.channel.on("visualize_node", msg => this.visualizeNode(msg));
+    this.channel.on("cleanup_node", msg => this.cleanupNode(msg));
     this.channel.on("spawn", msg => this.spawn(msg));
     this.channel.on("exit", msg => this.exit(msg));
     this.channel.on("name", msg => this.name(msg));
@@ -32,9 +33,9 @@ export default class {
 
   visualizeNode(msg) {
     $.each(msg.pids, (pid, info) => {
-      // FIXME: need to remove init pid when node is deselected
-      if (info.name == "init")
+      if (info.name == "init") {
         this.init_pids[info.node] = pid;
+      }
 
       this.addProcess(pid, info);
     });
@@ -42,6 +43,16 @@ export default class {
     msg.links.forEach(link => this.graph.addLink(link[0], link[1]));
     this.graph.update(true);
   };
+
+  cleanupNode(msg) {
+    $.each(this.pids, (pid, info) => {
+      if (info.node == msg.node) {
+        this.removeProcess(pid);
+      }
+    });
+    delete this.init_pids[msg.node];
+    this.graph.update(true);
+  }
 
   spawn(msg) {
     $.each(msg, (pid, info) => {
