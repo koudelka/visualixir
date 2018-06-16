@@ -6,6 +6,7 @@ export default class {
   constructor(graph_container, msg_seq_container, log_container) {
     this.pids = {};
     this.init_pids = {};
+    this.unlinked_pids = {};
 
     graph_container.empty();
     msg_seq_container.empty();
@@ -33,18 +34,29 @@ export default class {
 
   visualizeNode(msg) {
     $.each(msg.pids, (pid, info) => {
+      this.addProcess(pid, info);
+
       if (info.name == "init") {
         this.init_pids[info.node] = pid;
       }
 
-      this.addProcess(pid, info);
+      if (info.links.length > 0) {
+        $.each(info.links, (_idx, other_pid) => this.addLink([pid, other_pid]));
+      } else {
+        this.unlinked_pids[pid] = info;
+      }
     });
-    $.each(msg.ports, (port, info) => this.addProcess(port, info));
-    msg.links.forEach(link => this.graph.addLink(link[0], link[1]));
+
+    $.each(this.unlinked_pids, (pid, info) => {
+      let init_pid = this.init_pids[info.node];
+      this.addInvisibleLink([init_pid, pid]);
+    });
+
     this.graph.update(true);
   };
 
   cleanupNode(msg) {
+    // could optimize this by building a nodes -> pids map upon visualization
     $.each(this.pids, (pid, info) => {
       if (info.node == msg.node) {
         this.removeProcess(pid);
@@ -54,6 +66,7 @@ export default class {
     this.graph.update(true);
   }
 
+  // FIXME: deal with links
   spawn(msg) {
     $.each(msg, (pid, info) => {
       this.addProcess(pid, info);
@@ -76,7 +89,7 @@ export default class {
 
   links(msg) {
     msg.links.forEach(link => {
-      this.graph.addLink(link[0], link[1]);
+      this.addLink(link);
 
       var from = this.pids[link[0]],
           to = this.pids[1];
@@ -110,15 +123,23 @@ export default class {
 
 
   addProcess(id, info) {
-    let pid = {"id": id,
-               links: {},
-               local_pid: info.local_pid,
-               name: info.name,
-               node: info.node,
-               application: info.application,
-               type: info.type,
-               msg_traced: info.msg_traced};
-    this.pids[id] = pid;
+    this.pids[id] = {id: id,
+                     links: {},
+                     invisible_links: {},
+                     local_pid: info.local_pid,
+                     name: info.name,
+                     node: info.node,
+                     application: info.application,
+                     type: info.type,
+                     msg_traced: info.msg_traced};
+  }
+
+  addLink(link) {
+    this.graph.addLink(link[0], link[1]);
+  }
+
+  addInvisibleLink(link) {
+    this.graph.addInvisibleLink(link[0], link[1]);
   }
 
   removeProcess(id) {

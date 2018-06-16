@@ -103,9 +103,8 @@ defmodule Visualixir.Tracer do
 
   def initial_state do
     %{
-      pids: map_pids_to_info(:erlang.processes),
-      ports: map_pids_to_info(:erlang.ports),
-      links: all_links()
+      pids: :lists.merge(:erlang.processes, :erlang.ports) |> map_pids_to_info
+      # links: all_links()
     }
   end
 
@@ -149,19 +148,34 @@ defmodule Visualixir.Tracer do
       {_pid, app} -> app
     end
   end
-
-  defp application(port) when is_port(port) do
-    nil
-  end
+  defp application(port) when is_port(port), do: nil
 
   defp process_type(pid) when is_pid(pid) do
     case :erlang.process_info(pid, :dictionary) do
       :undefined -> :dead
-      {_, [{_, _}, "$initial_call": {:supervisor, _, _}]} -> :supervisor
+      {:dictionary, dictionary} ->
+        case :lists.keyfind(:"$initial_call", 1, dictionary) do
+          {_, {:supervisor, _, _}} -> :supervisor
+          _ -> :normal
+        end
       _ -> :normal
     end
   end
   defp process_type(port) when is_port(port), do: :port
+
+  defp links(pid) when is_pid(pid) do
+    case :erlang.process_info(pid, :links) do
+      {:links, links} -> links
+      _ -> []
+    end
+  end
+
+  defp links(port) when is_port(port) do
+    case :erlang.port_info(port, :links) do
+      {:links, links} -> links
+      _ -> []
+    end
+  end
 
   defp process_being_msg_traced(pid) when is_pid(pid) do
     case :erlang.trace_info(pid, :flags) do
@@ -169,7 +183,6 @@ defmodule Visualixir.Tracer do
       _ -> false
     end
   end
-
   defp process_being_msg_traced(port) when is_port(port), do: false
 
   defp map_pids_to_info(pids) do
@@ -177,6 +190,7 @@ defmodule Visualixir.Tracer do
       {pid, %{name: pid_name(pid),
               node: node(),
               type: process_type(pid),
+              links: links(pid),
               application: application(pid),
               msg_traced: process_being_msg_traced(pid)}}
     end, pids)

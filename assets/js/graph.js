@@ -1,8 +1,9 @@
 const PID_RADIUS = 5,
       LABEL_OFFSET_X = 5,
       LABEL_OFFSET_Y = 7,
-      LINE_LENGTH = 25,
-      REPULSION = -100,
+      LINK_LENGTH = 70,
+      REPULSION = -LINK_LENGTH,
+      CENTERING_STRENGTH = 0.015,
       ARROW_DX = 5,
       ARROW_DY = 3;
 
@@ -31,25 +32,37 @@ export default class {
     this.container = container;
     this.cluster_view = cluster_view;
 
-    let zoom = d3.behavior.zoom()
-          .scaleExtent([0, 4])
-          .on("zoom", () =>
-              this.svg.attr("transform", "translate(" + d3.event.translate + ") scale(" + d3.event.scale + ")")
-             );
+    let zoom =
+        d3.zoom()
+        .scaleExtent([0, 4])
+        .on("zoom", () => {
+          let translation = [d3.event.transform.x, d3.event.transform.y];
+          return this.svg.attr("transform", "translate(" + translation + ") scale(" + d3.event.transform.k + ")");
+        });
 
     this.svg = d3.select(container.get(0))
       .append("svg")
       .attr("width", "100%")
       .attr("height", "100%")
       .call(zoom)
-      .append("g")
-      .attr("transform", "translate(0, 0)");
+      .append("g");
 
-    this.force = d3.layout.force()
-      .gravity(.05)
-      .distance(LINE_LENGTH)
-      .charge(REPULSION)
-      .size([this.container.innerWidth(), this.container.innerHeight()]);
+    this.forceCenter = d3.forceCenter();
+    this.forceLink = d3.forceLink().distance(LINK_LENGTH);
+    this.forceManyBody = d3.forceManyBody().strength(REPULSION);
+    this.forceCenter = d3.forceCenter(this.container.innerWidth() / 2, this.container.innerHeight() / 2);
+
+    this.forceSimulation =
+      d3.forceSimulation()
+      .force("link", this.forceLink)
+      .force("charge", this.forceManyBody)
+      .force("center", this.forceCenter)
+      .force("x", d3.forceX().strength(CENTERING_STRENGTH))
+      .force("y", d3.forceY().strength(CENTERING_STRENGTH));
+
+    this.forceSimulation
+      .velocityDecay(0.2)
+      .alphaDecay(0.02);
 
     this.svg.append("g")
       .attr("id", "msggroup");
@@ -64,6 +77,7 @@ export default class {
     // and generate `links` from the node tree
     this.pids = pids;
     this.links = {};
+    this.invisible_links = {}; // used to group unlinked (free-floating) pids near the init pid
     this.msgs = {};
   }
 
@@ -87,11 +101,24 @@ export default class {
         target = this.pids[target_id];
 
     if(source && target) {
-      let link = {"source": source, "target": target, "strength": 1},
+      let link = {"source": source, "target": target},
           id = this.link_id(source_id, target_id);
 
       this.links[id] = link;
       source.links[target_id] = target.links[source_id] = link;
+    }
+  }
+
+  addInvisibleLink(source_id, target_id) {
+    let source = this.pids[source_id],
+        target = this.pids[target_id];
+
+    if(source && target) {
+      let link = {"source": source, "target": target},
+          id = this.link_id(source_id, target_id);
+
+      this.invisible_links[id] = link;
+      source.invisible_links[target_id] = target.invisible_links[source_id] = link;
     }
   }
 
@@ -152,30 +179,45 @@ export default class {
   update(restart_force) {
     let pids_list = d3.values(this.pids),
         links_list = d3.values(this.links),
+        invisible_links_list = d3.values(this.invisible_links),
         self = this;
 
-    let node_els = this.svg.select("#nodegroup").selectAll("g.node").data(pids_list, d => d.id),
-        link_els = this.svg.select("#linkgroup").selectAll("line.link").data(links_list, d => this.link_id(d.source.id, d.target.id)),
-        msg_els = this.svg.select("#msggroup").selectAll("path.msg").data(d3.values(this.msgs), d => d.id);
+    let nodes = this.svg.select("#nodegroup").selectAll("g.node").data(pids_list, d => d.id),
+        links = this.svg.select("#linkgroup").selectAll("line.link").data(links_list, d => this.link_id(d.source.id, d.target.id)),
+        msgs = this.svg.select("#msggroup").selectAll("path.msg").data(d3.values(this.msgs), d => d.id);
 
-    this.force.nodes(pids_list)
-      .links(links_list);
+    this.forceSimulation.nodes(pids_list);
+    this.forceSimulation.force("link").links(links_list.concat(invisible_links_list));
 
-    let drag = this.force.drag()
-          .on("dragstart", d => {
-            d3.event.sourceEvent.stopPropagation();
-          })
-          .on("dragend", d => {
-            d.fixed = true;
-          });
+    nodes.exit()
+      .transition()
+      .duration(200)
+      .style("opacity", 0)
+      .remove()
+      .selectAll("circle")
+      .attr("class", "dead");
 
-    let node = node_els.enter().append("g")
-          .attr("class", d => "node " + d.type)
-          .call(drag);
+    links.exit().remove();
 
-    node_els.classed("msg_traced", d => d.msg_traced);
+    let drag =
+        d3.drag()
+        .on("start", d => {
+          d3.event.sourceEvent.stopPropagation();
+        })
+        .on("end", d => {
+          d.fixed = true;
+        });
 
-    node.on("click", function(d) {
+    let new_nodes =
+        nodes.enter().append("g")
+        .attr("class", d => "node " + d.type)
+        .call(drag);
+
+    nodes = new_nodes.merge(nodes);
+
+    nodes.classed("msg_traced", d => d.msg_traced);
+
+    new_nodes.on("click", function(d) {
       if (d3.event.defaultPrevented)
         return;
 
@@ -190,34 +232,37 @@ export default class {
       d3.event.stopPropagation();
     });
 
-    node.append("circle")
+    new_nodes.append("circle")
       .attr("r", PID_RADIUS);
 
-    node.append("text")
+    new_nodes.append("text")
       .attr("id", n => n.id + "_label")
       .attr("class", "pid_label")
       .attr("dx", LABEL_OFFSET_X)
       .attr("dy", LABEL_OFFSET_Y)
       .text(n => n.name);
 
-    node.append("text")
+    new_nodes.append("text")
       .attr("id", n => n.id + "node_label")
       .attr("class", "pid_label")
       .attr("dx", LABEL_OFFSET_X)
       .attr("dy", LABEL_OFFSET_Y * 2)
       .text(n => n.node);
 
-    node.append("text")
+    new_nodes.append("text")
       .attr("id", n => n.id + "_app_label")
       .attr("class", "application_label")
       .attr("dx", LABEL_OFFSET_X)
       .attr("dy", LABEL_OFFSET_Y * 3)
       .text(n => n.application);
 
-    link_els.enter().append("line")
-      .attr("class", "link");
+    var new_links =
+        links.enter().append("line")
+        .attr("class", "link");
 
-    let new_msg_els = msg_els.enter().append("path").attr("class", "msg");
+    links = new_links.merge(links);
+
+    let new_msg_els = msgs.enter().append("path").attr("class", "msg");
 
     new_msg_els.transition()
       .duration(2000)
@@ -226,32 +271,21 @@ export default class {
       .remove();
 
     // if the force layout has stopped moving, we'll statically draw the message curves.
-    if (this.force.alpha() <= 0)
-      this.drawMessageElements(msg_els);
+    // if (this.force.alpha() <= 0)
+    //   this.drawMessageElements(msg_els);
 
-
-    node_els.exit()
-      .transition()
-      .duration(200)
-      .style("opacity", 0)
-      .remove()
-      .selectAll("circle")
-      .attr("class", "dead");
-
-    link_els.exit().remove();
-
-    this.force.on("tick", () => {
-      link_els.attr("x1", d => d.source.x)
+    this.forceSimulation.on("tick", () => {
+      links.attr("x1", d => d.source.x)
         .attr("y1", d => d.source.y)
         .attr("x2", d => d.target.x)
         .attr("y2", d => d.target.y);
 
-      this.drawMessageElements(msg_els);
+      // this.drawMessageElements(msg_els);
 
-      node_els.attr("transform", d => "translate(" + d.x + "," + d.y + ")");
+      nodes.attr("transform", d => "translate(" + d.x + "," + d.y + ")");
     });
 
     if (restart_force)
-      this.force.start();
+      this.forceSimulation.alpha(1).restart();
   }
 }

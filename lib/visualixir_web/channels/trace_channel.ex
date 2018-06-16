@@ -32,7 +32,7 @@ defmodule VisualixirWeb.TraceChannel do
   end
 
   def announce_spawn(pid_map) do
-    broadcast!("spawn", pid_keys_to_binary(pid_map))
+    broadcast!("spawn", pids_to_binaries(pid_map))
   end
 
   def announce_exit(pid) do
@@ -65,15 +65,17 @@ defmodule VisualixirWeb.TraceChannel do
 
 
   defp initial_state(node) do
-    %{pids: pids, ports: ports, links: links} = state = Tracer.initial_state(node)
+    %{pids: pids} = Tracer.initial_state(node)
 
-    %{state |
-      pids: pid_keys_to_binary(pids),
-      ports: pid_keys_to_binary(ports),
-      links: pid_pairs_to_binary(links)}
+    pids =
+      Enum.into(pids, %{}, fn {pid, %{links: links} = info} ->
+        {pid_to_binary(pid), %{info | links: Enum.map(links, &pid_to_binary/1)}}
+      end)
+
+    %{pids: pids}
   end
 
-  defp pid_keys_to_binary(map) do
+  defp pids_to_binaries(map) do
     Enum.into(map, %{}, fn {pid, info} -> {pid_to_binary(pid), info} end)
   end
 
