@@ -2,8 +2,9 @@ const PID_RADIUS = 5,
       LABEL_OFFSET_X = 5,
       LABEL_OFFSET_Y = 7,
       LINK_LENGTH = 70,
+      INVISIBLE_LINK_LENGTH = 600,
       REPULSION = -LINK_LENGTH,
-      CENTERING_STRENGTH = 0.015,
+      CENTERING_STRENGTH = 0.017,
       ARROW_DX = 5,
       ARROW_DY = 3;
 
@@ -49,12 +50,14 @@ export default class {
 
     this.forceCenter = d3.forceCenter();
     this.forceLink = d3.forceLink().distance(LINK_LENGTH);
+    this.forceInvisibleLink = d3.forceLink().distance(INVISIBLE_LINK_LENGTH);
     this.forceManyBody = d3.forceManyBody().strength(REPULSION);
     this.forceCenter = d3.forceCenter(this.container.innerWidth() / 2, this.container.innerHeight() / 2);
 
     this.forceSimulation =
       d3.forceSimulation()
       .force("link", this.forceLink)
+      .force("invisiblelink", this.forceInvisibleLink)
       .force("charge", this.forceManyBody)
       .force("center", this.forceCenter)
       .force("x", d3.forceX().strength(CENTERING_STRENGTH))
@@ -69,6 +72,9 @@ export default class {
 
     this.svg.append("g")
       .attr("id", "linkgroup");
+
+    this.svg.append("g")
+      .attr("id", "invisiblelinkgroup");
 
     this.svg.append("g")
       .attr("id", "nodegroup");
@@ -93,6 +99,15 @@ export default class {
 
       delete link.target.links[pid.id];
       delete this.links[this.link_id(link.source.id, link.target.id)];
+    });
+
+    d3.values(pid.invisible_links).forEach(link => {
+      // when a process exits, its linked ports also exit
+      if(link.target.id.match(/#Port<[\d\.]+>/))
+        delete this.pids[link.target.id];
+
+      delete link.target.invisible_links[pid.id];
+      delete this.invisible_links[this.link_id(link.source.id, link.target.id)];
     });
   }
 
@@ -184,10 +199,12 @@ export default class {
 
     let nodes = this.svg.select("#nodegroup").selectAll("g.node").data(pids_list, d => d.id),
         links = this.svg.select("#linkgroup").selectAll("line.link").data(links_list, d => this.link_id(d.source.id, d.target.id)),
+        invisible_links = this.svg.select("#invisiblelinkgroup").selectAll("line.link").data(invisible_links_list, d => this.link_id(d.source.id, d.target.id)),
         msgs = this.svg.select("#msggroup").selectAll("path.msg").data(d3.values(this.msgs), d => d.id);
 
     this.forceSimulation.nodes(pids_list);
-    this.forceSimulation.force("link").links(links_list.concat(invisible_links_list));
+    this.forceSimulation.force("link").links(links_list);
+    this.forceSimulation.force("invisiblelink").links(invisible_links_list);
 
     nodes.exit()
       .transition()
@@ -197,12 +214,21 @@ export default class {
       .selectAll("circle")
       .attr("class", "dead");
 
+    invisible_links.exit().remove();
     links.exit().remove();
 
     let drag =
         d3.drag()
         .on("start", d => {
-          d3.event.sourceEvent.stopPropagation();
+          // d3.event.sourceEvent.stopPropagation();
+          this.forceSimulation.restart();
+          this.forceSimulation.alpha(1.0);
+          d.fx = d.x;
+          d.fy = d.y;
+        })
+        .on("drag", d => {
+          d.fx = d3.event.x;
+          d.fy = d3.event.y;
         })
         .on("end", d => {
           d.fixed = true;
@@ -228,8 +254,10 @@ export default class {
       }
     })
     .on("dblclick", d => {
-      d.fixed = false;
       d3.event.stopPropagation();
+      d.fixed = false;
+      d.fx = null;
+      d.fy = null;
     });
 
     new_nodes.append("circle")
@@ -261,6 +289,12 @@ export default class {
         .attr("class", "link");
 
     links = new_links.merge(links);
+
+    var new_invisible_links =
+        invisible_links.enter().append("line")
+        .attr("class", "link");
+
+    invisible_links = new_invisible_links.merge(invisible_links);
 
     let new_msg_els = msgs.enter().append("path").attr("class", "msg");
 
