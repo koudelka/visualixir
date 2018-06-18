@@ -21,24 +21,27 @@ export default class {
   }
 
   update(nodes) {
+    let self = this;
     let node_els = d3.select(this.container.find("ul").get(0)).selectAll("li.node_name").data(nodes);
 
-    let self = this;
-
-    let node = node_els.enter().insert("li")
-          .attr("class", "node_name")
-          .html(n => n)
-          .on("click", function(d) {
-            if ($(this).hasClass("selected")) {
-              $(this).removeClass("selected");
-              self.cleanupNode(d);
-            } else {
-              $(this).addClass("selected");
-              self.visualizeNode(d);
-            }
-          });
-
     node_els.exit().remove();
+
+    let node =
+        node_els.enter()
+        .insert("li")
+        .attr("class", "node_name")
+        .html(n => n)
+        .on("click", function(d) {
+          if ($(this).hasClass("selected")) {
+            $(this).removeClass("selected");
+            self.cleanupNode(d);
+          } else {
+            $(this).addClass("selected");
+            self.visualizeNode(d);
+          }
+        });
+
+    node_els.merge(node);
   }
 
   add(node) {

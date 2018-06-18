@@ -62,7 +62,7 @@ defmodule Visualixir.Tracer do
     {:reply, :ok, visualizer_node}
   end
 
-  def handle_info({:trace, _spawner_pid, :spawn, pid, _mfa}, visualizer_node) do
+  def handle_info({:trace, _spawner_pid, :spawn, pid, _mfa} = msg, visualizer_node) do
     :rpc.call(visualizer_node, TraceChannel, :announce_spawn, [map_pids_to_info([pid])])
 
     {:noreply, visualizer_node}
@@ -96,7 +96,7 @@ defmodule Visualixir.Tracer do
     {:noreply, visualizer_node}
   end
 
-  def handle_info(_msg, state) do
+  def handle_info(msg, state) do
     {:noreply, state}
   end
 

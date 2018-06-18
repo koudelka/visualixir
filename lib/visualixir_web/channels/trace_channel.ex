@@ -67,16 +67,13 @@ defmodule VisualixirWeb.TraceChannel do
   defp initial_state(node) do
     %{pids: pids} = Tracer.initial_state(node)
 
-    pids =
-      Enum.into(pids, %{}, fn {pid, %{links: links} = info} ->
-        {pid_to_binary(pid), %{info | links: Enum.map(links, &pid_to_binary/1)}}
-      end)
-
-    %{pids: pids}
+    %{pids: pids_to_binaries(pids)}
   end
 
   defp pids_to_binaries(map) do
-    Enum.into(map, %{}, fn {pid, info} -> {pid_to_binary(pid), info} end)
+    Enum.into(map, %{}, fn {pid, %{links: links} = info} ->
+      {pid_to_binary(pid), %{info | links: Enum.map(links, &pid_to_binary/1)}}
+    end)
   end
 
   defp pid_pairs_to_binary(pairs) do

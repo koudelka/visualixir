@@ -1,8 +1,10 @@
+import ClusterView from "./cluster_view.js";
+
 const PID_RADIUS = 5,
       LABEL_OFFSET_X = 5,
       LABEL_OFFSET_Y = 7,
       LINK_LENGTH = 70,
-      INVISIBLE_LINK_LENGTH = 600,
+      INVISIBLE_LINK_LENGTH = 20,
       REPULSION = -LINK_LENGTH,
       CENTERING_STRENGTH = 0.017,
       ARROW_DX = 5,
@@ -29,7 +31,7 @@ function arrow(x, y, slope, direction) {
 
 
 export default class {
-  constructor(container, cluster_view, pids) {
+  constructor(container, cluster_view) {
     this.container = container;
     this.cluster_view = cluster_view;
 
@@ -65,7 +67,7 @@ export default class {
 
     this.forceSimulation
       .velocityDecay(0.2)
-      .alphaDecay(0.02);
+      .alphaDecay(0.015);
 
     this.svg.append("g")
       .attr("id", "msggroup");
@@ -79,75 +81,62 @@ export default class {
     this.svg.append("g")
       .attr("id", "nodegroup");
 
-    // use ES6 Maps once they're better supported
-    // and generate `links` from the node tree
-    this.pids = pids;
     this.links = {};
-    this.invisible_links = {}; // used to group unlinked (free-floating) pids near the init pid
+    this.invisible_links = {}; // used to group unlinked (free-floating) pids near the "net_kernel" pid
     this.msgs = {};
   }
 
   link_id(from, to) {
-    return from + "-" + to;
+    return [from.id, to.id].sort().join("-");
   }
 
-  removeNode(pid) {
-    d3.values(pid.links).forEach(link => {
-      // when a process exits, its linked ports also exit
-      if(link.target.id.match(/#Port<[\d\.]+>/))
-        delete this.pids[link.target.id];
-
-      delete link.target.links[pid.id];
-      delete this.links[this.link_id(link.source.id, link.target.id)];
+  removeNode(process) {
+    d3.values(process.links).forEach(linked_process => {
+      delete linked_process.links[process.id];
+      delete this.links[this.link_id(process, linked_process)];
     });
 
-    d3.values(pid.invisible_links).forEach(link => {
-      // when a process exits, its linked ports also exit
-      if(link.target.id.match(/#Port<[\d\.]+>/))
-        delete this.pids[link.target.id];
+    // let groupingPidInfo = this.cluster_view.groupingPidInfo(info.node);
+    // if (groupingPidInfo) {
+    //   delete groupingPidInfo.invisble_links[pid];
+    // }
 
-      delete link.target.invisible_links[pid.id];
-      delete this.invisible_links[this.link_id(link.source.id, link.target.id)];
-    });
+    // // only the grouping pid
+    // if (info.invisble_links) {
+    //   d3.keys(info.invisible_links).forEach(other_pid => {
+    //     let link_id = this.link_id(pid, other_pid);
+    //     delete this.invisible_links[link_id];
+    //   });
+    // }
   }
 
-  addLink(source_id, target_id) {
-    let source = this.pids[source_id],
-        target = this.pids[target_id];
-
+  addLink(source, target) {
     if(source && target) {
       let link = {"source": source, "target": target},
-          id = this.link_id(source_id, target_id);
+          id = this.link_id(source, target);
 
       this.links[id] = link;
-      source.links[target_id] = target.links[source_id] = link;
     }
   }
 
-  addInvisibleLink(source_id, target_id) {
-    let source = this.pids[source_id],
-        target = this.pids[target_id];
-
+  addInvisibleLink(source, target) {
     if(source && target) {
       let link = {"source": source, "target": target},
-          id = this.link_id(source_id, target_id);
+          id = this.link_id(source, target);
 
       this.invisible_links[id] = link;
-      source.invisible_links[target_id] = target.invisible_links[source_id] = link;
     }
   }
 
-  removeLink(source_id, target_id) {
-    let id = this.link_id(source_id, target_id),
-        source = this.pids[source_id],
-        target = this.pids[target_id];
+  removeLink(source, target) {
+    let id = this.link_id(source, target);
 
     delete this.links[id];
   }
 
   addMsg(source_id, target_id) {
-    let source = this.pids[source_id],
-        target = this.pids[target_id];
+    let source = this.cluster_view.processes[source_id],
+        target = this.cluster_view.processes[target_id];
 
     if (source && target) {
       let id = source_id + "-" + target_id + "-" + Math.random(),
@@ -186,20 +175,20 @@ export default class {
   }
 
   stopMsgTraceAll() {
-    d3.values(this.pids).forEach(pid => {
+    d3.values(this.cluster_view.processes).forEach(pid => {
       pid.msg_traced = false;
     });
   }
 
   update(restart_force) {
-    let pids_list = d3.values(this.pids),
+    let pids_list = d3.values(this.cluster_view.processes),
         links_list = d3.values(this.links),
         invisible_links_list = d3.values(this.invisible_links),
         self = this;
 
     let nodes = this.svg.select("#nodegroup").selectAll("g.node").data(pids_list, d => d.id),
-        links = this.svg.select("#linkgroup").selectAll("line.link").data(links_list, d => this.link_id(d.source.id, d.target.id)),
-        invisible_links = this.svg.select("#invisiblelinkgroup").selectAll("line.link").data(invisible_links_list, d => this.link_id(d.source.id, d.target.id)),
+        links = this.svg.select("#linkgroup").selectAll("line.link").data(links_list, d => this.link_id(d.source, d.target)),
+        invisible_links = this.svg.select("#invisiblelinkgroup").selectAll("line.link").data(invisible_links_list, d => this.link_id(d.source, d.target)),
         msgs = this.svg.select("#msggroup").selectAll("path.msg").data(d3.values(this.msgs), d => d.id);
 
     this.forceSimulation.nodes(pids_list);
@@ -220,7 +209,7 @@ export default class {
     let drag =
         d3.drag()
         .on("start", d => {
-          // d3.event.sourceEvent.stopPropagation();
+          d3.event.sourceEvent.stopPropagation();
           this.forceSimulation.restart();
           this.forceSimulation.alpha(1.0);
           d.fx = d.x;

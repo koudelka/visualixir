@@ -1,18 +1,18 @@
 import Graph from "./graph.js";
 import MessageSequence from "./message_sequence.js";
 import Log from "./log.js";
+import Process from "./process.js";
 
 export default class {
   constructor(graph_container, msg_seq_container, log_container) {
-    this.pids = {};
-    this.init_pids = {};
-    this.unlinked_pids = {};
+    this.processes = {};
+    this.grouping_processes = {};
 
     graph_container.empty();
     msg_seq_container.empty();
     log_container.empty();
 
-    this.graph = new Graph(graph_container, this, this.pids);
+    this.graph = new Graph(graph_container, this);
     this.msg_seq = new MessageSequence(msg_seq_container);
     this.logger = new Log(log_container);
 
@@ -33,51 +33,33 @@ export default class {
   }
 
   visualizeNode(msg) {
-    $.each(msg.pids, (pid, info) => {
-      this.addProcess(pid, info);
-
-      if (info.name == "init") {
-        this.init_pids[info.node] = pid;
-      }
-
-      if (info.links.length > 0) {
-        $.each(info.links, (_idx, other_pid) => this.addLink([pid, other_pid]));
-      } else {
-        this.unlinked_pids[pid] = info;
-      }
-    });
-
-    $.each(this.unlinked_pids, (pid, info) => {
-      let init_pid = this.init_pids[info.node];
-      this.addInvisibleLink([init_pid, pid]);
-    });
-
+    $.each(msg.pids, (pid, info) => this.addProcess(pid, info));
     this.graph.update(true);
   };
 
   cleanupNode(msg) {
     // could optimize this by building a nodes -> pids map upon visualization
-    $.each(this.pids, (pid, info) => {
-      if (info.node == msg.node) {
+    $.each(this.processes, (pid, process) => {
+      if (process.node == msg.node) {
         this.removeProcess(pid);
       }
     });
-    delete this.init_pids[msg.node];
+    delete this.grouping_processes[msg.node];
     this.graph.update(true);
   }
 
-  // FIXME: deal with links
   spawn(msg) {
     $.each(msg, (pid, info) => {
       this.addProcess(pid, info);
-      this.logger.logOnePidLine(this.pids[pid], "spawn");
+
+      this.logger.logOnePidLine(this.processes[pid], "spawn");
     });
     this.graph.update(true);
   };
 
   exit(msg) {
-    if (this.pids[msg.pid]) {
-      this.logger.logOnePidLine(this.pids[msg.pid], "exit");
+    if (this.processes[msg.pid]) {
+      this.logger.logOnePidLine(this.processes[msg.pid], "exit");
       this.removeProcess(msg.pid);
       this.graph.update(true);
     }
@@ -89,12 +71,12 @@ export default class {
 
   links(msg) {
     msg.links.forEach(link => {
-      this.addLink(link);
-
-      var from = this.pids[link[0]],
-          to = this.pids[1];
+      var from = this.processes[link[0]],
+          to = this.processes[link[1]];
 
       if (from && to) {
+        this.addLink(from, to);
+
         this.logger.logTwoPidLine(from, to, "link");
       }
     });
@@ -103,15 +85,15 @@ export default class {
 
   unlink(msg) {
     this.graph.removeLink(msg.link[0], msg.link[1]);
-    this.logger.logTwoPidLine(this.pids[msg.link[0]], this.pids[msg.link[1]], "unlink");
+    this.logger.logTwoPidLine(this.processeses[msg.link[0]], this.processes[msg.link[1]], "unlink");
     this.graph.update(true);
   };
 
   msg(msg) {
     this.graph.addMsg(msg.from_pid, msg.to_pid);
 
-    var from = this.pids[msg.from_pid],
-        to = this.pids[msg.to_pid];
+    var from = this.processes[msg.from_pid],
+        to = this.processes[msg.to_pid];
 
     if (from && to) {
       this.logger.logMsgLine(from, to, msg.msg);
@@ -121,33 +103,71 @@ export default class {
     this.graph.update(false);
   };
 
+  addProcess(pid, info) {
+    if (!this.processes[pid]) {
+      let process = this.processes[pid] = new Process(pid, info);
 
-  addProcess(id, info) {
-    this.pids[id] = {id: id,
-                     links: {},
-                     invisible_links: {},
-                     local_pid: info.local_pid,
-                     name: info.name,
-                     node: info.node,
-                     application: info.application,
-                     type: info.type,
-                     msg_traced: info.msg_traced};
+      if (process.isGroupingPid()) {
+        this.grouping_processes[process.node] = process;
+
+        // since this is the first time the grouping process has been seen, go through all processes
+        // and create invisble links for processes that don't have links
+        $.each(this.processes, (maybe_unlinked_pid, maybe_unlinked_process) => {
+          if (maybe_unlinked_process.links.length == 0) {
+            this.addInvisibleLink(maybe_unlinked_process);
+          }
+        });
+      }
+
+      if (info.links.length > 0) {
+        $.each(info.links, (_idx, other_pid) => this.addLink(process, this.processes[other_pid]));
+      } else {
+        // this.addInvisibleLink(process);
+      }
+    }
   }
 
-  addLink(link) {
-    this.graph.addLink(link[0], link[1]);
+  addLink(from, to) {
+    if (from && to) {
+      from.links[to.id] = to;
+      to.links[from.id] = from;
+      this.graph.addLink(from, to);
+    }
   }
 
-  addInvisibleLink(link) {
-    this.graph.addInvisibleLink(link[0], link[1]);
+  addInvisibleLink(process) {
+    let grouping_process = this.grouping_processes[process.node];
+    this.graph.addInvisibleLink([grouping_process, process]);
+
+    console.log(grouping_process);
+    // if (grouping_process) {
+    //   grouping_process.invisible_links[process.id] = process;
+    // }
   }
 
-  removeProcess(id) {
-    if(!this.pids[id]) return;
+  removeProcess(pid) {
+    if(!this.processes[pid]) {
+      console.log("tried to remove unknown process " + pid);
+      return;
+    }
 
-    this.graph.removeNode(this.pids[id]);
+    let process = this.processes[pid];
 
-    delete this.pids[id];
+    // if (info.links.length > 0) {
+    //   $.each(info.links, (_idx, other_pid) => this.addLink([pid, other_pid]));
+    // } else {
+    //   this.addInvisibleLink(pid, info);
+    // }
+
+    // when a process exits, its linked ports also exit
+    d3.values(process.links).forEach(linked_process => {
+      if(linked_process.id.match(/#Port<[\d\.]+>/))
+        delete this.processes[linked_process.id];
+    });
+
+    this.graph.removeNode(process);
+
+    delete this.processes[pid];
   }
 
   msgTracePID(id) {
@@ -158,5 +178,9 @@ export default class {
     this.channel.push("stop_msg_trace_all", node);
     this.graph.stopMsgTraceAll();
     this.graph.update(false);
+  }
+
+  groupingPidInfo(node) {
+    return this.pids[this.grouping_pids[node]];
   }
 }

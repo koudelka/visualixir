@@ -81,10 +81,12 @@ export default class {
   update() {
     let line_els = this.container.selectAll("div.logline").data(this.lines, d => d.id);
 
-    let line = line_els.enter().insert("div")
+    line_els.exit().remove();
+
+    let line = line_els.enter().insert("div", ":first-child")
           .attr("class", l => "logline " + l.type)
           .html(l => '<img src="/images/' + l.type + '.png">' + l.toHTML());
 
-    line_els.exit().remove();
+    line_els.merge(line);
   }
 }
