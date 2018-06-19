@@ -1,6 +1,7 @@
 import ClusterView from "./cluster_view.js";
 
-const PID_RADIUS = 5,
+const ALPHA_DECAY = 0.015,
+      PID_RADIUS = 5,
       LABEL_OFFSET_X = 5,
       LABEL_OFFSET_Y = 7,
       LINK_LENGTH = 70,
@@ -67,7 +68,7 @@ export default class {
 
     this.forceSimulation
       .velocityDecay(0.2)
-      .alphaDecay(0.015);
+      .alphaDecay(ALPHA_DECAY);
 
     this.svg.append("g")
       .attr("id", "msggroup");
@@ -139,19 +140,16 @@ export default class {
     delete this.links[id];
   }
 
-  addMsg(source_id, target_id) {
-    let source = this.cluster_view.processes[source_id],
-        target = this.cluster_view.processes[target_id];
-
-    if (source && target) {
-      let id = source_id + "-" + target_id + "-" + Math.random(),
-          msg = {id: id, "source": source, "target": target};
-      this.msgs[id] = msg;
-    }
+  addMsg(source, target) {
+    let id = source.id + "-" + target.id + "-" + Math.random(),
+        msg = {id: id, "source": source, "target": target};
+    this.msgs[id] = msg;
   }
 
   drawMessageElements(message_els) {
+    console.log("start")
     message_els.attr("d", d => {
+      console.log(d.id)
         let dx = d.target.x - d.source.x,
             dy = d.target.y - d.source.y,
             dr = Math.sqrt(dx * dx + dy * dy);
@@ -173,6 +171,7 @@ export default class {
 
         return d3.select(this).attr("d") + arrow(midway.x, midway.y, slope, dx > 0);
       });
+    console.log("stop")
   }
 
   updateName(pid, name) {
@@ -290,17 +289,19 @@ export default class {
 
     invisible_links = new_invisible_links.merge(invisible_links);
 
-    let new_msg_els = msgs.enter().append("path").attr("class", "msg");
+    let new_msgs = msgs.enter().append("path").attr("class", "msg");
 
-    new_msg_els.transition()
+    new_msgs.transition()
+      .on("end", d => delete this.msgs[d.id])
       .duration(2000)
       .style("opacity", 0)
-      .each("end", d => delete this.msgs[d.id])
       .remove();
 
-    // if the force layout has stopped moving, we'll statically draw the message curves.
-    // if (this.force.alpha() <= 0)
-    //   this.drawMessageElements(msg_els);
+    msgs = msgs.merge(new_msgs);
+
+    // if the force layout has stopped moving, so the tick function wont be called, we'll statically draw the message curves.
+    if (this.forceSimulation.alpha() < ALPHA_DECAY)
+      this.drawMessageElements(msgs);
 
     this.forceSimulation.on("tick", () => {
       links.attr("x1", d => d.source.x)
@@ -308,7 +309,7 @@ export default class {
         .attr("x2", d => d.target.x)
         .attr("y2", d => d.target.y);
 
-      // this.drawMessageElements(msg_els);
+      this.drawMessageElements(msgs);
 
       nodes.attr("transform", d => "translate(" + d.x + "," + d.y + ")");
     });

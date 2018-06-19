@@ -90,17 +90,16 @@ export default class {
   };
 
   msg(msg) {
-    this.graph.addMsg(msg.from_pid, msg.to_pid);
-
     var from = this.processes[msg.from_pid],
         to = this.processes[msg.to_pid];
 
+    // FIXME: should we really care if the processes exist to log the message?
     if (from && to) {
       this.logger.logMsgLine(from, to, msg.msg);
-      this.msg_seq.addMessage(from, to, msg.msg);
+      // this.msg_seq.addMessage(from, to, msg.msg);
+      this.graph.addMsg(from, to);
+      this.graph.update(false);
     }
-
-    this.graph.update(false);
   };
 
   addProcess(pid, info) {
@@ -113,7 +112,7 @@ export default class {
         // since this is the first time the grouping process has been seen, go through all processes
         // and create invisble links for processes that don't have links
         d3.values(this.processes).forEach(maybe_unlinked_process => {
-          if (maybe_unlinked_process.links.length == 0) {
+          if (d3.keys(maybe_unlinked_process.links).length == 0) {
             this.addInvisibleLink(maybe_unlinked_process);
           }
         });
