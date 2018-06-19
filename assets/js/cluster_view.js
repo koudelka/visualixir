@@ -112,17 +112,17 @@ export default class {
 
         // since this is the first time the grouping process has been seen, go through all processes
         // and create invisble links for processes that don't have links
-        $.each(this.processes, (maybe_unlinked_pid, maybe_unlinked_process) => {
+        d3.values(this.processes).forEach(maybe_unlinked_process => {
           if (maybe_unlinked_process.links.length == 0) {
             this.addInvisibleLink(maybe_unlinked_process);
           }
         });
       }
 
-      if (info.links.length > 0) {
-        $.each(info.links, (_idx, other_pid) => this.addLink(process, this.processes[other_pid]));
+      if (info.links.length > 0 && !process.isGroupingPid()) {
+        info.links.forEach(other_pid => this.addLink(process, this.processes[other_pid]));
       } else {
-        // this.addInvisibleLink(process);
+        this.addInvisibleLink(process);
       }
     }
   }
@@ -137,12 +137,19 @@ export default class {
 
   addInvisibleLink(process) {
     let grouping_process = this.grouping_processes[process.node];
-    this.graph.addInvisibleLink([grouping_process, process]);
+    if (grouping_process) {
+      grouping_process.invisible_links[process.id] = process;
+      this.graph.addInvisibleLink(grouping_process, process);
+    }
+  }
 
-    console.log(grouping_process);
-    // if (grouping_process) {
-    //   grouping_process.invisible_links[process.id] = process;
-    // }
+  removeInvisibleLink(process) {
+    let grouping_process = this.grouping_processes[process.node];
+
+    if (grouping_process) {
+      delete grouping_process.invisible_links[process.id];
+      this.graph.removeInvisibleLink(grouping_process, process);
+    }
   }
 
   removeProcess(pid) {
@@ -153,14 +160,13 @@ export default class {
 
     let process = this.processes[pid];
 
-    // if (info.links.length > 0) {
-    //   $.each(info.links, (_idx, other_pid) => this.addLink([pid, other_pid]));
-    // } else {
-    //   this.addInvisibleLink(pid, info);
-    // }
+    $.each(process.links, (_idx, other_pid) => delete other_pid.links[pid]);
+    this.removeInvisibleLink(process);
 
-    // when a process exits, its linked ports also exit
     d3.values(process.links).forEach(linked_process => {
+      delete linked_process.links[pid];
+
+      // when a process exits, its linked ports also exit
       if(linked_process.id.match(/#Port<[\d\.]+>/))
         delete this.processes[linked_process.id];
     });
@@ -178,9 +184,5 @@ export default class {
     this.channel.push("stop_msg_trace_all", node);
     this.graph.stopMsgTraceAll();
     this.graph.update(false);
-  }
-
-  groupingPidInfo(node) {
-    return this.pids[this.grouping_pids[node]];
   }
 }

@@ -12,7 +12,7 @@ export default class {
     this.msg_traced = info.msg_traced;
 
     if (this.isGroupingPid()) {
-      this.invisible_liks = {};
+      this.invisible_links = {};
     }
   }
 

@@ -4,7 +4,7 @@ const PID_RADIUS = 5,
       LABEL_OFFSET_X = 5,
       LABEL_OFFSET_Y = 7,
       LINK_LENGTH = 70,
-      INVISIBLE_LINK_LENGTH = 20,
+      INVISIBLE_LINK_LENGTH = 200,
       REPULSION = -LINK_LENGTH,
       CENTERING_STRENGTH = 0.017,
       ARROW_DX = 5,
@@ -92,22 +92,19 @@ export default class {
 
   removeNode(process) {
     d3.values(process.links).forEach(linked_process => {
-      delete linked_process.links[process.id];
       delete this.links[this.link_id(process, linked_process)];
     });
 
-    // let groupingPidInfo = this.cluster_view.groupingPidInfo(info.node);
-    // if (groupingPidInfo) {
-    //   delete groupingPidInfo.invisble_links[pid];
-    // }
+    let grouping_process = this.cluster_view.grouping_processes[process.node];
+    if (grouping_process) {
+      this.removeInvisibleLink(process, grouping_process);
+    }
 
-    // // only the grouping pid
-    // if (info.invisble_links) {
-    //   d3.keys(info.invisible_links).forEach(other_pid => {
-    //     let link_id = this.link_id(pid, other_pid);
-    //     delete this.invisible_links[link_id];
-    //   });
-    // }
+    if (process == grouping_process) {
+      d3.keys(process.invisible_links).forEach(other_process => {
+        this.removeInvisibleLink(process, other_process);
+      });
+    }
   }
 
   addLink(source, target) {
@@ -125,6 +122,14 @@ export default class {
           id = this.link_id(source, target);
 
       this.invisible_links[id] = link;
+    }
+  }
+
+  removeInvisibleLink(source, target) {
+    if(source && target) {
+      let id = this.link_id(source, target);
+
+      delete this.invisible_links[id];
     }
   }
 
