@@ -96,7 +96,7 @@ export default class {
     // FIXME: should we really care if the processes exist to log the message?
     if (from && to) {
       this.logger.logMsgLine(from, to, msg.msg);
-      // this.msg_seq.addMessage(from, to, msg.msg);
+      this.msg_seq.addMessage(from, to, msg.msg);
       this.graph.addMsg(from, to);
       this.graph.update(false);
     }

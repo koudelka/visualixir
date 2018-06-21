@@ -147,9 +147,7 @@ export default class {
   }
 
   drawMessageElements(message_els) {
-    console.log("start")
     message_els.attr("d", d => {
-      console.log(d.id)
         let dx = d.target.x - d.source.x,
             dy = d.target.y - d.source.y,
             dr = Math.sqrt(dx * dx + dy * dy);
@@ -171,7 +169,6 @@ export default class {
 
         return d3.select(this).attr("d") + arrow(midway.x, midway.y, slope, dx > 0);
       });
-    console.log("stop")
   }
 
   updateName(pid, name) {
