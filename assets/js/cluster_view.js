@@ -57,6 +57,7 @@ export default class {
     this.graph.update(true);
   };
 
+  // FIXME: need to evaluate invisible links for remaining processes
   exit(msg) {
     if (this.processes[msg.pid]) {
       this.logger.logOnePidLine(this.processes[msg.pid], "exit");
@@ -70,27 +71,43 @@ export default class {
   };
 
   links(msg) {
-    msg.links.forEach(link => {
-      var from = this.processes[link[0]],
-          to = this.processes[link[1]];
+    let from = this.processes[msg.from],
+        to = this.processes[msg.to];
 
-      if (from && to) {
-        this.addLink(from, to);
+    if (from && to) {
+      this.addLink(from, to);
+      this.logger.logTwoPidLine(from, to, "link");
 
-        this.logger.logTwoPidLine(from, to, "link");
-      }
-    });
+      if (!msg.from_was_unlinked)
+        this.removeInvisibleLink(from);
+
+      if (!msg.to_was_unlinked)
+        this.removeInvisibleLink(to);
+    }
+
     this.graph.update(true);
   };
 
   unlink(msg) {
-    this.graph.removeLink(msg.link[0], msg.link[1]);
-    this.logger.logTwoPidLine(this.processeses[msg.link[0]], this.processes[msg.link[1]], "unlink");
-    this.graph.update(true);
+    let from = this.processes[msg.from],
+        to = this.processes[msg.to];
+
+    if (from && to) {
+      this.graph.removeLink(from, to);
+      this.logger.logTwoPidLine(from, to, "unlink");
+
+      if (!msg.from_any_links)
+        this.addInvisibleLink(from);
+
+      if (!msg.to_any_links)
+        this.addInvisibleLink(to);
+
+      this.graph.update(true);
+    }
   };
 
   msg(msg) {
-    var from = this.processes[msg.from_pid],
+    let from = this.processes[msg.from_pid],
         to = this.processes[msg.to_pid];
 
     // FIXME: should we really care if the processes exist to log the message?

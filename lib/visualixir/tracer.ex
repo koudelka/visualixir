@@ -74,17 +74,23 @@ defmodule Visualixir.Tracer do
     {:noreply, visualizer_node}
   end
 
+  # if a pid has only one link now, it had zero before this event
   def handle_info({:trace, from_pid, :link, to_pid}, visualizer_node) do
-    link = :lists.sort([from_pid, to_pid])
-    :rpc.call(visualizer_node, TraceChannel, :announce_link, [link])
+    msg = %{from: from_pid,
+            from_was_unlinked: length(links(from_pid)) == 1,
+            to: to_pid,
+            to_was_unlinked: length(links(to_pid)) == 1}
+    :rpc.call(visualizer_node, TraceChannel, :announce_link, [msg])
 
     {:noreply, visualizer_node}
   end
 
-  # ignore ports, the gui knows when to unlink them
-  def handle_info({:trace, from_pid, :unlink, to_pid}, visualizer_node) when is_pid(to_pid) do
-    link = :lists.sort([from_pid, to_pid])
-    :rpc.call(visualizer_node, TraceChannel, :announce_unlink, [link])
+  def handle_info({:trace, from_pid, :unlink, to_pid}, visualizer_node) do
+    msg = %{from: from_pid,
+            from_any_links: length(links(from_pid)) > 0,
+            to: to_pid,
+            to_any_links: length(links(to_pid)) > 0}
+    :rpc.call(visualizer_node, TraceChannel, :announce_unlink, [msg])
 
     {:noreply, visualizer_node}
   end
@@ -102,10 +108,7 @@ defmodule Visualixir.Tracer do
 
 
   def initial_state do
-    %{
-      pids: :lists.merge(:erlang.processes, :erlang.ports) |> map_pids_to_info
-      # links: all_links()
-    }
+    %{pids: :lists.merge(:erlang.processes, :erlang.ports) |> map_pids_to_info}
   end
 
   def all_links do

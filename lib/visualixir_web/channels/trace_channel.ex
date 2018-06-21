@@ -17,7 +17,7 @@ defmodule VisualixirWeb.TraceChannel do
   end
 
   def handle_in("stop_msg_trace_all", _msg, %Socket{topic: @channel} = socket) do
-    :erlang.nodes()
+    :erlang.nodes(:known)
     |> Enum.each(&Tracer.stop_msg_trace_all/1)
 
     {:noreply, socket}
@@ -43,16 +43,12 @@ defmodule VisualixirWeb.TraceChannel do
     broadcast!("name", %{pid: pid_to_binary(pid), name: name})
   end
 
-  # a list of links is a list of lists
-  # [[pid1, pid2], [pid3, pid4], ...]
-  def announce_links(links) do
-    broadcast!("links", %{links: pid_pairs_to_binary(links)})
+  def announce_link(%{from: from, to: to} = msg) do
+    broadcast!("links", %{msg | from: pid_to_binary(from), to: pid_to_binary(to)})
   end
 
-  def announce_link(link), do: announce_links([link])
-
-  def announce_unlink(link) do
-    broadcast!("unlink", %{link: pid_pair_to_binary(link)})
+  def announce_unlink(%{from: from, to: to} = msg) do
+    broadcast!("unlink", %{msg | from: pid_to_binary(from), to: pid_to_binary(to)})
   end
 
   def announce_msg(from_pid, to_pid, msg) do
