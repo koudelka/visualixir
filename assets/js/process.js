@@ -1,5 +1,5 @@
 // this is the name of the pid that otherwise unlinked pids will group around, to keep all of a node's pids together
-const GROUPING_PID = "net_kernel";
+const GROUPING_PID = "application_controller";
 
 export default class {
   constructor(pid, info) {

@@ -14,19 +14,19 @@
 
     <div id="legend">
       <svg>
-        <g class="node supervisor">
+        <g class="process supervisor">
           <circle cx="10" cy="20" r="5"></circle>
           <text x="10" y="20" dx="8" dy="3">Supervisor</text>
         </g>
-        <g class="node normal">
+        <g class="process normal">
           <circle cx="10" cy="40" r="5"></circle>
           <text x="10" y="40" dx="8" dy="3">PID</text>
         </g>
-        <g class="node normal msg_traced">
+        <g class="process normal msg_traced">
           <circle cx="10" cy="60" r="5"></circle>
           <text x="10" y="60" dx="8" dy="3">PID (msg tracing)</text>
         </g>
-        <g class="node port">
+        <g class="process port">
           <circle cx="10" cy="80" r="5"></circle>
           <text x="10" y="80" dx="8" dy="3">Port</text>
         </g>

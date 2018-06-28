@@ -4,8 +4,8 @@ const ALPHA_DECAY = 0.015,
       PID_RADIUS = 5,
       LABEL_OFFSET_X = 5,
       LABEL_OFFSET_Y = 7,
-      LINK_LENGTH = 70,
-      INVISIBLE_LINK_LENGTH = 200,
+      INVISIBLE_LINK_STRENGTH = 0.01,
+      LINK_LENGTH = 80,
       REPULSION = -LINK_LENGTH,
       CENTERING_STRENGTH = 0.017,
       ARROW_DX = 5,
@@ -53,7 +53,7 @@ export default class {
 
     this.forceCenter = d3.forceCenter();
     this.forceLink = d3.forceLink().distance(LINK_LENGTH);
-    this.forceInvisibleLink = d3.forceLink().distance(INVISIBLE_LINK_LENGTH);
+    this.forceInvisibleLink = d3.forceLink().strength(INVISIBLE_LINK_STRENGTH);
     this.forceManyBody = d3.forceManyBody().strength(REPULSION);
     this.forceCenter = d3.forceCenter(this.container.innerWidth() / 2, this.container.innerHeight() / 2);
 
@@ -67,8 +67,11 @@ export default class {
       .force("y", d3.forceY().strength(CENTERING_STRENGTH));
 
     this.forceSimulation
-      .velocityDecay(0.2)
+      .velocityDecay(0.3)
       .alphaDecay(ALPHA_DECAY);
+
+    this.svg.append("g")
+      .attr("id", "nodebackgroundgroup");
 
     this.svg.append("g")
       .attr("id", "msggroup");
@@ -80,7 +83,7 @@ export default class {
       .attr("id", "invisiblelinkgroup");
 
     this.svg.append("g")
-      .attr("id", "nodegroup");
+      .attr("id", "processgroup");
 
     this.links = {};
     this.invisible_links = {}; // used to group unlinked (free-floating) pids near the "net_kernel" pid
@@ -91,7 +94,7 @@ export default class {
     return [from.id, to.id].sort().join("-");
   }
 
-  removeNode(process) {
+  removeProcess(process) {
     d3.values(process.links).forEach(linked_process => {
       delete this.links[this.link_id(process, linked_process)];
     });
@@ -187,7 +190,11 @@ export default class {
         invisible_links_list = d3.values(this.invisible_links),
         self = this;
 
-    let nodes = this.svg.select("#nodegroup").selectAll("g.node").data(pids_list, d => d.id),
+    let pids_by_node = d3.nest().key(d => d.node).map(pids_list),
+        nodes_list = pids_by_node.keys();
+
+    let processes = this.svg.select("#processgroup").selectAll("g.process").data(pids_list, d => d.id),
+        node_bgs = this.svg.select("#nodebackgroundgroup").selectAll("polygon").data(nodes_list, d => d),
         links = this.svg.select("#linkgroup").selectAll("line.link").data(links_list, d => this.link_id(d.source, d.target)),
         invisible_links = this.svg.select("#invisiblelinkgroup").selectAll("line.link").data(invisible_links_list, d => this.link_id(d.source, d.target)),
         msgs = this.svg.select("#msggroup").selectAll("path.msg").data(d3.values(this.msgs), d => d.id);
@@ -196,16 +203,15 @@ export default class {
     this.forceSimulation.force("link").links(links_list);
     this.forceSimulation.force("invisiblelink").links(invisible_links_list);
 
-    nodes.exit()
+    // Processes
+
+    processes.exit()
       .transition()
       .duration(200)
       .style("opacity", 0)
       .remove()
       .selectAll("circle")
       .attr("class", "dead");
-
-    invisible_links.exit().remove();
-    links.exit().remove();
 
     let drag =
         d3.drag()
@@ -224,16 +230,16 @@ export default class {
           d.fixed = true;
         });
 
-    let new_nodes =
-        nodes.enter().append("g")
-        .attr("class", d => "node " + d.type)
+    let new_processes =
+        processes.enter().append("g")
+        .attr("class", d => "process " + d.type)
         .call(drag);
 
-    nodes = new_nodes.merge(nodes);
+    processes = new_processes.merge(processes);
 
-    nodes.classed("msg_traced", d => d.msg_traced);
+    processes.classed("msg_traced", d => d.msg_traced);
 
-    new_nodes.on("click", function(d) {
+    new_processes.on("click", function(d) {
       if (d3.event.defaultPrevented)
         return;
 
@@ -250,41 +256,48 @@ export default class {
       d.fy = null;
     });
 
-    new_nodes.append("circle")
+    new_processes.append("circle")
       .attr("r", PID_RADIUS);
 
-    new_nodes.append("text")
+    new_processes.append("text")
       .attr("id", n => n.id + "_label")
       .attr("class", "pid_label")
       .attr("dx", LABEL_OFFSET_X)
       .attr("dy", LABEL_OFFSET_Y)
       .text(n => n.name);
 
-    new_nodes.append("text")
-      .attr("id", n => n.id + "node_label")
+    new_processes.append("text")
+      .attr("id", n => n.id + "process_label")
       .attr("class", "pid_label")
       .attr("dx", LABEL_OFFSET_X)
       .attr("dy", LABEL_OFFSET_Y * 2)
       .text(n => n.node);
 
-    new_nodes.append("text")
+    new_processes.append("text")
       .attr("id", n => n.id + "_app_label")
       .attr("class", "application_label")
       .attr("dx", LABEL_OFFSET_X)
       .attr("dy", LABEL_OFFSET_Y * 3)
       .text(n => n.application);
 
+    // Links
+
+    links.exit().remove();
     var new_links =
         links.enter().append("line")
         .attr("class", "link");
 
     links = new_links.merge(links);
 
+
+    invisible_links.exit().remove();
     var new_invisible_links =
         invisible_links.enter().append("line")
         .attr("class", "link");
 
     invisible_links = new_invisible_links.merge(invisible_links);
+
+    // Messages
 
     let new_msgs = msgs.enter().append("path").attr("class", "msg");
 
@@ -295,6 +308,23 @@ export default class {
       .remove();
 
     msgs = msgs.merge(new_msgs);
+
+    // Node Backgrounds
+
+    node_bgs.exit()
+      // .transition()
+      // .duration(2000)
+      // .style("opacity", 0)
+      .remove();
+
+    let new_node_bgs = node_bgs.enter()
+        .append("polygon")
+        .attr("class", "nodebg")
+        .attr("node", d => d)
+        .attr("stroke-width", PID_RADIUS * 8);
+
+    node_bgs = node_bgs.merge(new_node_bgs);
+
 
     // if the force layout has stopped moving, so the tick function wont be called, we'll statically draw the message curves.
     if (this.forceSimulation.alpha() < ALPHA_DECAY)
@@ -308,7 +338,20 @@ export default class {
 
       this.drawMessageElements(msgs);
 
-      nodes.attr("transform", d => "translate(" + d.x + "," + d.y + ")");
+      processes.attr("transform", d => "translate(" + d.x + "," + d.y + ")");
+
+      pids_by_node.each((pids, node) => {
+        let points = pids.map(p => [p.x, p.y]),
+            hull = d3.polygonHull(points);
+
+        if (hull) {
+          let hull_points_str = hull.map(point => point.join(" ")).join(", ");
+
+          node_bgs
+            .filter("[node='" + node + "']")
+            .attr("points", hull_points_str);
+        }
+      });
     });
 
     if (restart_force)

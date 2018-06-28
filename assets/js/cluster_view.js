@@ -120,27 +120,24 @@ export default class {
   };
 
   addProcess(pid, info) {
-    if (!this.processes[pid]) {
-      let process = this.processes[pid] = new Process(pid, info);
+    if (this.processes[pid]) return;
 
-      if (process.isGroupingPid()) {
-        this.grouping_processes[process.node] = process;
+    let process = this.processes[pid] = new Process(pid, info);
 
-        // since this is the first time the grouping process has been seen, go through all processes
-        // and create invisble links for processes that don't have links
-        d3.values(this.processes).forEach(maybe_unlinked_process => {
-          if (d3.keys(maybe_unlinked_process.links).length == 0) {
-            this.addInvisibleLink(maybe_unlinked_process);
-          }
-        });
-      }
+    if (process.isGroupingPid()) {
+      this.grouping_processes[process.node] = process;
 
-      if (info.links.length > 0 && !process.isGroupingPid()) {
-        info.links.forEach(other_pid => this.addLink(process, this.processes[other_pid]));
-      } else {
-        this.addInvisibleLink(process);
-      }
+      // since this is the first time the grouping process has been seen, go through all processes and create invisble links
+      d3.values(this.processes).forEach(maybe_unlinked_process => {
+        if (!maybe_unlinked_process.isGroupingPid()) {
+          this.addInvisibleLink(maybe_unlinked_process);
+        }
+      });
+    } else {
+      this.addInvisibleLink(process);
     }
+
+    info.links.forEach(other_pid => this.addLink(process, this.processes[other_pid]));
   }
 
   addLink(from, to) {
@@ -187,7 +184,7 @@ export default class {
         delete this.processes[linked_process.id];
     });
 
-    this.graph.removeNode(process);
+    this.graph.removeProcess(process);
 
     delete this.processes[pid];
   }
