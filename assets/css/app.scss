@@ -68,15 +68,22 @@ g.process {
     opacity: 1
   }
 
-  polygon.nodebg {
-    opacity: 0.25;
-    stroke-opacity: 0.25;
-    fill: steelblue;
-    stroke: steelblue;
-    stroke-dasharray: 10 5;
-    stroke-linejoin: round;
-  }
+  g.nodebackground {
+    polygon.nodebackground {
+      opacity: 0.25;
+      stroke-opacity: 0.25;
+      fill: steelblue;
+      stroke: steelblue;
+      stroke-dasharray: 10 5;
+      stroke-linejoin: round;
+    }
 
+    text {
+      pointer-events: none;
+      fill: white;
+      font: 90px sans-serif;
+    }
+  }
 }
 
 .left {

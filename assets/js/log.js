@@ -1,8 +1,8 @@
 const MAX_LOG_LINES = 100;
 
-class OnePid {
-  constructor(pid, type) {
-    this.pid = pid.name;
+class OneProcess {
+  constructor(process, type) {
+    this.process = process;
     this.type = type;
 
     switch (type) {
@@ -16,15 +16,16 @@ class OnePid {
   }
 
   toHTML() {
-    return '<span class="pid"> ' + this.pid + " </span> " +
-           '<span class="verb">' + this.verb + "</span> ";
+    return '<span class="pid"> ' + this.process.name + " </span>" +
+           '<span class="verb">' + this.verb + "</span> on " +
+           '<span class="pid"> ' + this.process.node + " </span> ";
   }
 }
 
-class TwoPid {
-  constructor(from_pid, to_pid, type) {
-    this.from_pid = from_pid.name;
-    this.to_pid = to_pid.name;
+class TwoProcess {
+  constructor(from_process, to_process, type) {
+    this.from_process = from_process;
+    this.to_process = to_process;
     this.type = type;
 
     switch (type) {
@@ -38,15 +39,26 @@ class TwoPid {
   }
 
   toHTML() {
-    return '<span class="pid from"> ' + this.from_pid + " </span> " +
-           '<span class="verb">' + this.verb + "</span> " +
-           '<span class="pid to"> ' + this.to_pid + " </span> ";
+    let lines;
+
+    if (this.from_process.node == this.to_process.node) {
+      lines = ['<span class="pid from">' + this.from_process.name + "</span> "];
+    } else {
+      lines = ['<span class="pid from">' + this.from_process.name + "</span> on ",
+               '<span class="pid from">' + this.from_process.node + "</span> "];
+    }
+
+    return lines.concat([
+      '<span class="verb">' + this.verb + "</span> ",
+      '<span class="pid to">' + this.to_process.name + "</span> on ",
+      '<span class="pid to">' + this.to_process.node + "</span> "
+    ]).join("");
   }
 }
 
-class Msg extends TwoPid {
-  constructor(from_pid, to_pid, msg) {
-    super(from_pid, to_pid);
+class Msg extends TwoProcess {
+  constructor(from_process, to_process, msg) {
+    super(from_process, to_process);
 
     this.msg = msg;
     this.verb = "sent";
@@ -67,9 +79,9 @@ export default class {
     this.lines = [];
   }
 
-  logMsgLine(from_pid, to_pid, msg) { this.addLine(new Msg(from_pid, to_pid, msg)); }
-  logOnePidLine(pid, type) { this.addLine(new OnePid(pid, type)); }
-  logTwoPidLine(pid, other_pid, type) { this.addLine(new TwoPid(pid, other_pid, type)); }
+  logMsgLine(from_process, to_process, msg) { this.addLine(new Msg(from_process, to_process, msg)); }
+  logOneProcessLine(process, type) { this.addLine(new OneProcess(process, type)); }
+  logTwoProcessLine(process, other_process, type) { this.addLine(new TwoProcess(process, other_process, type)); }
 
   addLine(line) {
     line.id = new Date().getTime() + "" + Math.random() + "" + Math.random();
@@ -83,9 +95,11 @@ export default class {
 
     line_els.exit().remove();
 
-    let line = line_els.enter().insert("div", ":first-child")
-          .attr("class", l => "logline " + l.type)
-          .html(l => '<img src="/images/' + l.type + '.png">' + l.toHTML());
+    let line =
+        line_els.enter()
+        .insert("div", ":first-child")
+        .attr("class", l => "logline " + l.type)
+        .html(l => '<img src="/images/' + l.type + '.png">' + l.toHTML());
 
     line_els.merge(line);
   }

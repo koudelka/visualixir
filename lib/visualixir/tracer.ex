@@ -14,7 +14,6 @@ defmodule Visualixir.Tracer do
 
   def stop(node) do
     :ok = GenServer.stop({__MODULE__, node})
-    cleanup(node)
   end
 
   def initial_state(node) do
@@ -46,6 +45,7 @@ defmodule Visualixir.Tracer do
 
   def init([visualizer_node]) do
     :erlang.trace(:all, true, [:procs])
+    :ok = :net_kernel.monitor_nodes(true)
 
     {:ok, visualizer_node}
   end
@@ -102,6 +102,14 @@ defmodule Visualixir.Tracer do
     {:noreply, visualizer_node}
   end
 
+  def handle_info({:nodedown, visualizer_node}, visualizer_node) do
+    :erlang.display('[Visualixir] Lost connection to visualizer node, purging Tracer module.')
+
+    cleanup()
+
+    {:stop, :normal, visualizer_node}
+  end
+
   def handle_info(msg, state) do
     {:noreply, state}
   end
@@ -113,7 +121,7 @@ defmodule Visualixir.Tracer do
 
   def all_links do
     :lists.flatmap(fn pid ->
-      links = case :erlang.process_info(pid, :links) do
+      links = case process_info(pid, :links) do
                 {:links, links} -> links
                 :undefined      -> []
               end
@@ -132,7 +140,7 @@ defmodule Visualixir.Tracer do
   end
 
   defp pid_name(pid) when is_pid(pid) do
-    case :erlang.process_info(pid, :registered_name) do
+    case process_info(pid, :registered_name) do
       {:registered_name, name} -> :erlang.atom_to_binary(name, :utf8)
       _ -> pid_to_binary(pid)
     end
@@ -154,7 +162,7 @@ defmodule Visualixir.Tracer do
   defp application(port) when is_port(port), do: nil
 
   defp process_type(pid) when is_pid(pid) do
-    case :erlang.process_info(pid, :dictionary) do
+    case process_info(pid, :dictionary) do
       :undefined -> :dead
       {:dictionary, dictionary} ->
         case :lists.keyfind(:"$initial_call", 1, dictionary) do
@@ -167,7 +175,7 @@ defmodule Visualixir.Tracer do
   defp process_type(port) when is_port(port), do: :port
 
   defp links(pid) when is_pid(pid) do
-    case :erlang.process_info(pid, :links) do
+    case process_info(pid, :links) do
       {:links, links} -> links
       _ -> []
     end
@@ -202,6 +210,14 @@ defmodule Visualixir.Tracer do
     |> :maps.from_list
   end
 
+  defp process_info(pid, key) do
+    try do
+      :erlang.process_info(pid, key)
+    rescue ArgumentError ->
+        nil
+    end
+  end
+
   #
   # Remote node code (un)loading.
   #
@@ -211,8 +227,8 @@ defmodule Visualixir.Tracer do
     :rpc.call(node, :code, :load_binary, [module, file, binary])
   end
 
-  def cleanup(node) do
-    :rpc.call(node, :code, :purge, [__MODULE__])
-    :rpc.call(node, :code, :delete, [__MODULE__])
+  def cleanup do
+    :code.delete(__MODULE__)
+    :code.purge(__MODULE__)
   end
 end

@@ -52,7 +52,7 @@ export default class {
     $.each(msg, (pid, info) => {
       this.addProcess(pid, info);
 
-      this.logger.logOnePidLine(this.processes[pid], "spawn");
+      this.logger.logOneProcessLine(this.processes[pid], "spawn");
     });
     this.graph.update(true);
   };
@@ -60,7 +60,7 @@ export default class {
   // FIXME: need to evaluate invisible links for remaining processes
   exit(msg) {
     if (this.processes[msg.pid]) {
-      this.logger.logOnePidLine(this.processes[msg.pid], "exit");
+      this.logger.logOneProcessLine(this.processes[msg.pid], "exit");
       this.removeProcess(msg.pid);
       this.graph.update(true);
     }
@@ -76,7 +76,7 @@ export default class {
 
     if (from && to) {
       this.addLink(from, to);
-      this.logger.logTwoPidLine(from, to, "link");
+      this.logger.logTwoProcessLine(from, to, "link");
 
       if (!msg.from_was_unlinked)
         this.removeInvisibleLink(from);
@@ -94,7 +94,7 @@ export default class {
 
     if (from && to) {
       this.graph.removeLink(from, to);
-      this.logger.logTwoPidLine(from, to, "unlink");
+      this.logger.logTwoProcessLine(from, to, "unlink");
 
       if (!msg.from_any_links)
         this.addInvisibleLink(from);
@@ -124,12 +124,12 @@ export default class {
 
     let process = this.processes[pid] = new Process(pid, info);
 
-    if (process.isGroupingPid()) {
+    if (process.isGroupingProcess()) {
       this.grouping_processes[process.node] = process;
 
       // since this is the first time the grouping process has been seen, go through all processes and create invisble links
       d3.values(this.processes).forEach(maybe_unlinked_process => {
-        if (!maybe_unlinked_process.isGroupingPid()) {
+        if (!maybe_unlinked_process.isGroupingProcess()) {
           this.addInvisibleLink(maybe_unlinked_process);
         }
       });

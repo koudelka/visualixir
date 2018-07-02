@@ -1,6 +1,7 @@
 defmodule Visualixir.NodeMonitor do
   use GenServer
   require Logger
+  alias VisualixirWeb.TraceChannel
 
   def start_link do
     GenServer.start_link(__MODULE__, [])
@@ -23,6 +24,7 @@ defmodule Visualixir.NodeMonitor do
   def handle_info({:nodedown, node}, state) do
     Logger.warn "[Visualixir] Lost connection to #{node}..."
 
+    TraceChannel.announce_cleanup(node)
     VisualixirWeb.NodesChannel.refresh()
 
     {:noreply, state}

@@ -40,11 +40,13 @@ export default class {
         d3.zoom()
         .scaleExtent([0, 4])
         .on("zoom", () => {
-          let translation = [d3.event.transform.x, d3.event.transform.y];
-          return this.svg.attr("transform", "translate(" + translation + ") scale(" + d3.event.transform.k + ")");
+          let translation = [Math.round(d3.event.transform.x), Math.round(d3.event.transform.y)];
+
+          this.svg.attr("transform", "translate(" + translation + ") scale(" + d3.event.transform.k + ")");
         });
 
-    this.svg = d3.select(container.get(0))
+    this.svg =
+      d3.select(container.get(0))
       .append("svg")
       .attr("width", "100%")
       .attr("height", "100%")
@@ -67,7 +69,7 @@ export default class {
       .force("y", d3.forceY().strength(CENTERING_STRENGTH));
 
     this.forceSimulation
-      .velocityDecay(0.3)
+      .velocityDecay(0.2)
       .alphaDecay(ALPHA_DECAY);
 
     this.svg.append("g")
@@ -194,7 +196,7 @@ export default class {
         nodes_list = pids_by_node.keys();
 
     let processes = this.svg.select("#processgroup").selectAll("g.process").data(pids_list, d => d.id),
-        node_bgs = this.svg.select("#nodebackgroundgroup").selectAll("polygon").data(nodes_list, d => d),
+        node_bgs = this.svg.select("#nodebackgroundgroup").selectAll("g.nodebackground").data(nodes_list, d => d),
         links = this.svg.select("#linkgroup").selectAll("line.link").data(links_list, d => this.link_id(d.source, d.target)),
         invisible_links = this.svg.select("#invisiblelinkgroup").selectAll("line.link").data(invisible_links_list, d => this.link_id(d.source, d.target)),
         msgs = this.svg.select("#msggroup").selectAll("path.msg").data(d3.values(this.msgs), d => d.id);
@@ -267,17 +269,10 @@ export default class {
       .text(n => n.name);
 
     new_processes.append("text")
-      .attr("id", n => n.id + "process_label")
-      .attr("class", "pid_label")
-      .attr("dx", LABEL_OFFSET_X)
-      .attr("dy", LABEL_OFFSET_Y * 2)
-      .text(n => n.node);
-
-    new_processes.append("text")
       .attr("id", n => n.id + "_app_label")
       .attr("class", "application_label")
       .attr("dx", LABEL_OFFSET_X)
-      .attr("dy", LABEL_OFFSET_Y * 3)
+      .attr("dy", LABEL_OFFSET_Y * 2)
       .text(n => n.application);
 
     // Links
@@ -317,11 +312,20 @@ export default class {
       // .style("opacity", 0)
       .remove();
 
-    let new_node_bgs = node_bgs.enter()
+    let new_node_bgs =
+        node_bgs.enter()
+        .append("g")
+        .attr("class", "nodebackground")
+        .attr("node", d => d);
+
+    new_node_bgs
         .append("polygon")
-        .attr("class", "nodebg")
-        .attr("node", d => d)
+        .attr("class", "nodebackground")
         .attr("stroke-width", PID_RADIUS * 8);
+
+    new_node_bgs
+      .append("text")
+      .text(d => d);
 
     node_bgs = node_bgs.merge(new_node_bgs);
 
@@ -331,25 +335,39 @@ export default class {
       this.drawMessageElements(msgs);
 
     this.forceSimulation.on("tick", () => {
-      links.attr("x1", d => d.source.x)
-        .attr("y1", d => d.source.y)
-        .attr("x2", d => d.target.x)
-        .attr("y2", d => d.target.y);
+      links
+        .attr("x1", d => Math.round(d.source.x))
+        .attr("y1", d => Math.round(d.source.y))
+        .attr("x2", d => Math.round(d.target.x))
+        .attr("y2", d => Math.round(d.target.y));
 
       this.drawMessageElements(msgs);
 
-      processes.attr("transform", d => "translate(" + d.x + "," + d.y + ")");
+      processes.attr("transform", d => "translate(" + Math.round(d.x) + "," + Math.round(d.y) + ")");
 
       pids_by_node.each((pids, node) => {
         let points = pids.map(p => [p.x, p.y]),
             hull = d3.polygonHull(points);
 
         if (hull) {
+          hull = hull.map(p => [Math.round(p[0]), Math.round(p[1])]);
+
           let hull_points_str = hull.map(point => point.join(" ")).join(", ");
 
-          node_bgs
-            .filter("[node='" + node + "']")
+          let node_bg = node_bgs.filter("[node='" + node + "']");
+
+          node_bg
+            .select("polygon")
             .attr("points", hull_points_str);
+
+          let centroid = d3.polygonCentroid(hull);
+
+          node_bg
+            .select("text")
+            .attr("transform", function(d) {
+              let bounding_box = this.getBBox();
+              return "translate(" + (centroid[0] - bounding_box.width/2) + "," + (centroid[1] - bounding_box.height/2) + ")";
+            });
         }
       });
     });

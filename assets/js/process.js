@@ -11,12 +11,12 @@ export default class {
     this.type = info.type;
     this.msg_traced = info.msg_traced;
 
-    if (this.isGroupingPid()) {
+    if (this.isGroupingProcess()) {
       this.invisible_links = {};
     }
   }
 
-  isGroupingPid() {
+  isGroupingProcess() {
     return this.name == GROUPING_PID;
   }
 }
