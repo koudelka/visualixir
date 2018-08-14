@@ -45,13 +45,38 @@ export default class {
           this.svg.attr("transform", "translate(" + translation + ") scale(" + d3.event.transform.k + ")");
         });
 
+    let drag =
+        d3.drag()
+        .on("start", d => {
+          if (!d3.event.altKey)
+            return;
+          console.log("butt")
+          // d3.event.sourceEvent.stopPropagation();
+          // this.forceSimulation.restart();
+          // this.forceSimulation.alpha(1.0);
+          // d.fx = d.x;
+          // d.fy = d.y;
+        })
+        .on("drag", d => {
+          console.log(d3.event)
+          // d.fx = d3.event.x;
+          // d.fy = d3.event.y;
+        })
+        .on("end", d => {
+          // d.fixed = true;
+        });
+
     this.svg =
       d3.select(container.get(0))
       .append("svg")
       .attr("width", "100%")
       .attr("height", "100%")
-      .call(zoom)
+      // .call(zoom)
+      .call(drag)
       .append("g");
+
+
+
 
     this.forceCenter = d3.forceCenter();
     this.forceLink = d3.forceLink().distance(LINK_LENGTH);
@@ -86,6 +111,10 @@ export default class {
 
     this.svg.append("g")
       .attr("id", "processgroup");
+
+    this.svg.append("g")
+      .attr("id", "conversationgroup")
+      .append("rect");
 
     this.links = {};
     this.invisible_links = {}; // used to group unlinked (free-floating) pids near the "net_kernel" pid
