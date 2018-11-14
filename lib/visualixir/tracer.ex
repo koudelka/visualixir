@@ -1,6 +1,6 @@
 defmodule Visualixir.Tracer do
   use GenServer
-  alias Visualixir.TraceChannel
+  alias VisualixirWeb.TraceChannel
   require Logger
 
   def start(node) do
