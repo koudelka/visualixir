@@ -1,19 +1,16 @@
 import Graph from "./graph.js";
-import MessageSequence from "./message_sequence.js";
 import Log from "./log.js";
 import Process from "./process.js";
 
 export default class {
-  constructor(graph_container, msg_seq_container, log_container) {
+  constructor(graph_container, log_container) {
     this.processes = {};
     this.grouping_processes = {};
 
     graph_container.empty();
-    msg_seq_container.empty();
     log_container.empty();
 
     this.graph = new Graph(graph_container, this);
-    this.msg_seq = new MessageSequence(msg_seq_container);
     this.logger = new Log(log_container);
 
     this.channel = window.socket.channel("trace", {});
@@ -113,8 +110,7 @@ export default class {
     // FIXME: should we really care if the processes exist to log the message?
     if (from && to) {
       this.logger.logMsgLine(from, to, msg.msg);
-      this.msg_seq.addMessage(from, to, msg.msg);
-      this.graph.addMsg(from, to);
+      this.graph.addMsg(from, to, msg.msg);
       this.graph.update(false);
     }
   };

@@ -1,4 +1,5 @@
 import ClusterView from "./cluster_view.js";
+import MessageSequence from "./message_sequence.js";
 
 const ALPHA_DECAY = 0.015,
       PID_RADIUS = 5,
@@ -38,44 +39,77 @@ export default class {
 
     let zoom =
         d3.zoom()
-        .scaleExtent([0, 4])
+        .scaleExtent([0.1, 3])
+        .filter(() => !d3.event.altKey)
         .on("zoom", () => {
-          let translation = [Math.round(d3.event.transform.x), Math.round(d3.event.transform.y)];
-
-          this.svg.attr("transform", "translate(" + translation + ") scale(" + d3.event.transform.k + ")");
+          this.set_transform(d3.event.transform.x, d3.event.transform.y, d3.event.transform.k);
         });
+
+    let new_conversation,
+        new_conversation_group,
+        new_conversation_seq,
+        new_conversation_start = [0, 0];
 
     let drag =
         d3.drag()
         .on("start", d => {
-          if (!d3.event.altKey)
-            return;
-          console.log("butt")
-          // d3.event.sourceEvent.stopPropagation();
-          // this.forceSimulation.restart();
-          // this.forceSimulation.alpha(1.0);
-          // d.fx = d.x;
-          // d.fy = d.y;
+          new_conversation_group = this.svg.select("#conversationgroup").append("g").attr("class", "conversation_group");
+          new_conversation = new_conversation_group.append("rect").attr("class", "selection");
+          new_conversation_seq = new_conversation_group.append("svg");
+
+          new_conversation_start = [d3.event.x, d3.event.y];
+
+          let start = this.transform_point(d3.event.x, d3.event.y);
+          new_conversation.attr("x", start.x);
+          new_conversation.attr("y", start.y);
+          new_conversation.attr("width", 0);
+          new_conversation.attr("height", 0);
+
         })
         .on("drag", d => {
-          console.log(d3.event)
-          // d.fx = d3.event.x;
-          // d.fy = d3.event.y;
+          let start_x = new_conversation_start[0],
+              start_y = new_conversation_start[1];
+          let width = (d3.event.x - start_x),
+              height = (d3.event.y - start_y);
+
+          let transformed_width = width / this.transform[2],
+              transformed_height = height / this.transform[2];
+
+          let new_conversation_seq_start = this.transform_point(start_x + width, start_y + height);
+          new_conversation_seq.attr("x", new_conversation_seq_start.x);
+          new_conversation_seq.attr("y", new_conversation_seq_start.y);
+
+          if (width >= 0) {
+            new_conversation.attr("width", transformed_width);
+            new_conversation_seq.attr("width", transformed_width * 3);
+          }
+
+          if (height >= 0) {
+            new_conversation.attr("height", transformed_height);
+            new_conversation_seq.attr("height", transformed_height * 3);
+          }
         })
         .on("end", d => {
-          // d.fixed = true;
+          let msg_seq = new MessageSequence(new_conversation_seq);
+          new_conversation_seq.node().message_sequence = msg_seq;
         });
 
-    this.svg =
+    this.svg_element =
       d3.select(container.get(0))
       .append("svg")
-      .attr("width", "100%")
-      .attr("height", "100%")
-      // .call(zoom)
-      .call(drag)
-      .append("g");
+      .node();
 
+    this.svg =
+      d3.select(this.svg_element)
+        .attr("width", "100%")
+        .attr("height", "100%")
+        .call(zoom)
+        .call(drag)
+        .append("g");
 
+    // x, y, k
+    this.transform = null;
+    this.set_transform(0, 0, 1);
 
 
     this.forceCenter = d3.forceCenter();
@@ -101,6 +135,9 @@ export default class {
       .attr("id", "nodebackgroundgroup");
 
     this.svg.append("g")
+      .attr("id", "conversationgroup");
+
+    this.svg.append("g")
       .attr("id", "msggroup");
 
     this.svg.append("g")
@@ -112,14 +149,55 @@ export default class {
     this.svg.append("g")
       .attr("id", "processgroup");
 
-    this.svg.append("g")
-      .attr("id", "conversationgroup")
-      .append("rect");
-
     this.links = {};
     this.invisible_links = {}; // used to group unlinked (free-floating) pids near the "net_kernel" pid
     this.msgs = {};
+    this.conversations = {}; // process -> list of conversations
+    this.message_sequences = {}; // conversaion -> MessageSequence
   }
+
+  transform_point(x, y) {
+    let point = this.svg_element.createSVGPoint();
+    point.x = x;
+    point.y = y;
+
+    let transformed = point.matrixTransform(this.svg.node().getScreenCTM().inverse());
+    return {
+      x: transformed.x,
+      y: transformed.y
+    };
+  }
+
+  set_transform(x, y, k) {
+    let translation = [Math.round(x), Math.round(y)];
+    this.transform = translation.concat(k);
+
+    this.svg.attr("transform", "translate(" + translation + ") scale(" + k + ")");
+  }
+
+  add_process_to_conversation(process_id, conversation) {
+    this.conversations[process_id] = this.conversations[process_id] || [];
+    this.conversations[process_id].push(conversation);
+  }
+
+  conversations_at_point(x, y) {
+    let that = this;
+    return this.svg.selectAll("g.conversation_group > rect.selection")
+      .filter(function(d, i) {
+        let bounds = this.getBoundingClientRect(),
+            upper_left = that.transform_point(bounds.x, bounds.y),
+            lower_right = that.transform_point(bounds.x + bounds.width, bounds.y + bounds.height);
+
+        let within_x = upper_left.x <= x && x <= lower_right.x,
+            within_y = upper_left.y <= y && y <= lower_right.y;
+
+        return within_x && within_y;
+      })
+      .select(function() {
+        return d3.select(this.parentNode).select("svg").node();
+      });
+  }
+
 
   link_id(from, to) {
     return [from.id, to.id].sort().join("-");
@@ -174,9 +252,21 @@ export default class {
     delete this.links[id];
   }
 
-  addMsg(source, target) {
+  addMsg(source, target, message) {
     let id = source.id + "-" + target.id + "-" + Math.random(),
-        msg = {id: id, "source": source, "target": target};
+        msg = {id: id, source: source, target: target, message: message};
+
+    let all_conversations = (this.conversations[source.id] || []).concat(this.conversations[target.id] || []);
+    let message_sequences = {};
+
+    all_conversations.forEach(function (c) {
+      let id = c.message_sequence.id;
+      message_sequences[id] = c.message_sequence;
+    });
+    Object.values(message_sequences).forEach(function (m) {
+      m.addMessage(msg);
+    });
+
     this.msgs[id] = msg;
   }
 
@@ -207,6 +297,12 @@ export default class {
 
   updateName(pid, name) {
     d3.select("[id='"+ pid +"_label']").name(name);
+  }
+
+  msgTraceProcess(d, node) {
+    d.msg_traced = true;
+    this.cluster_view.msgTracePID(d.id);
+    d3.select(node).classed("msg_traced", true);
   }
 
   stopMsgTraceAll() {
@@ -257,13 +353,22 @@ export default class {
           d.fx = d3.event.x;
           d.fy = d3.event.y;
         })
-        .on("end", d => {
+        .on("end", function(d) {
+          let conversations = self.conversations_at_point(d3.event.x, d3.event.y);
+          if (conversations.size() > 0) {
+            self.msgTraceProcess(d, this);
+            let id = this.id;
+            conversations.nodes().forEach(function (c) {
+              self.add_process_to_conversation(id, c);
+            });
+          }
           d.fixed = true;
         });
 
     let new_processes =
         processes.enter().append("g")
         .attr("class", d => "process " + d.type)
+        .attr("id", d => d.id)
         .call(drag);
 
     processes = new_processes.merge(processes);
@@ -275,9 +380,7 @@ export default class {
         return;
 
       if (d3.event.altKey) {
-        d.msg_traced = true;
-        self.cluster_view.msgTracePID(d.id);
-        d3.select(this).classed("msg_traced", true);
+        self.msgTraceProcess(d, this);
       }
     })
     .on("dblclick", d => {
@@ -324,6 +427,18 @@ export default class {
     // Messages
 
     let new_msgs = msgs.enter().append("path").attr("class", "msg");
+
+    new_msgs.each(d => {
+      let pid_box =
+        d3.select("[id='"+ d.source.id +"']")
+          .select("circle")
+          .node()
+          .getBoundingClientRect();
+
+      let x = pid_box.x + pid_box.width/2,
+          y = pid_box.y + pid_box.height/2;
+
+    });
 
     new_msgs.transition()
       .on("end", d => delete this.msgs[d.id])

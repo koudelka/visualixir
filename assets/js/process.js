@@ -19,4 +19,8 @@ export default class {
   isGroupingProcess() {
     return this.name == GROUPING_PID;
   }
+
+  qualifiedName() {
+    return this.name + "@" + this.node;
+  }
 }

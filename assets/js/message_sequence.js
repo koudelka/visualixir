@@ -2,31 +2,39 @@ const FADE_TIME = 2000, // msec
       MAX_MSG_LENGTH = 60,
       MAX_PID_LENGTH = 30;
 
+var nextMessageSequenceID = 1;
+
 export default class {
-  constructor(container) {
-    this.container = d3.select(container.get(0));
+  constructor(svg) {
+    this.id = nextMessageSequenceID++;
+    this.svg = svg;
     this.msg_seq = d3.messageSequence().fade(FADE_TIME);
 
-    this.container
-      .append("svg")
+    this.svg.node().msg_seq = this;
+
+    this.svg
+      .append("rect")
+      .attr("class", "background")
       .attr("width", "100%")
-      .attr("height", "100%")
-      .call(this.msg_seq);
+      .attr("height", "100%");
+
+    this.svg.call(this.msg_seq);
   }
 
-  addMessage(from, to, msg) {
-    let from_name = from.name,
-        to_name = to.name;
+  addMessage(msg) {
+    let text = msg.message,
+        from = msg.source.qualifiedName(),
+        to = msg.target.qualifiedName();
 
-    if (msg.length > MAX_MSG_LENGTH)
-      msg = msg.slice(0, MAX_MSG_LENGTH-1) + " ...";
+    if (text.length > MAX_MSG_LENGTH)
+      text = text.slice(0, MAX_MSG_LENGTH-1) + " ...";
 
-    if (from_name.length > MAX_PID_LENGTH)
-      from_name = from_name.slice(0, MAX_PID_LENGTH-1) + "...";
+    if (from.length > MAX_PID_LENGTH)
+      from = from.slice(0, MAX_PID_LENGTH-1) + "...";
 
-    if (to_name.length > MAX_PID_LENGTH)
-      to_name = to_name.slice(0, MAX_PID_LENGTH-1) + "...";
+    if (to.length > MAX_PID_LENGTH)
+      to = to.slice(0, MAX_PID_LENGTH-1) + "...";
 
-    this.msg_seq.addMessage({from: from_name, to: to_name, msg: msg});
+    this.msg_seq.addMessage({from: from, to: to, msg: text});
   }
 }

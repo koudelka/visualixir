@@ -15,11 +15,12 @@ defmodule PingPong do
     receive do
       {from, :ping} ->
         :timer.sleep(@delay)
-        send(from, {self, :pong})
+        send(from, {self(), :pong})
       {from, :pong} ->
         :timer.sleep(@delay)
-        send(from, {self, :ping})
+        send(from, {self(), :ping})
     end
-    loop
+
+    loop()
   end
 end

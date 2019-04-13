@@ -6,16 +6,15 @@
     "watch": "brunch watch --stdin"
   },
   "dependencies": {
-    "node-gyp": "^3.6.2",
-    "node-sass": "^4.9.0",
+    "node-gyp": "^3.8.0",
+    "node-sass": "^4.11.0",
     "phoenix": "file:../deps/phoenix",
     "phoenix_html": "file:../deps/phoenix_html"
   },
   "devDependencies": {
-    "babel-brunch": "6.1.1",
-    "brunch": "^2.10.12",
-    "clean-css-brunch": "2.10.0",
-    "css-brunch": "~2.0.0",
+    "babel-brunch": "^7.0.1",
+    "brunch": "2.10.17",
+    "css-brunch": ">=2.0.0",
     "javascript-brunch": "~2.0.0",
     "sass-brunch": "github:brunch/sass-brunch#2d47094d8c259f07030a99433bc935d1ab753914",
     "uglify-js-brunch": "2.10.0"

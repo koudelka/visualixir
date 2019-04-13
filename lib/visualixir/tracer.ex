@@ -228,7 +228,7 @@ defmodule Visualixir.Tracer do
   end
 
   def cleanup do
-    :code.delete(__MODULE__)
     :code.purge(__MODULE__)
+    :code.delete(__MODULE__)
   end
 end

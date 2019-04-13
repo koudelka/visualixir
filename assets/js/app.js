@@ -8,7 +8,7 @@ import ClusterView from "./cluster_view.js";
 class App {
   constructor(node_selector_container) {
     this.node_selector = new NodeSelector(node_selector_container, this.channel);
-    this.cluster_view = new ClusterView($('#graph'), $('#msg_seq'), $('#log'));
+    this.cluster_view = new ClusterView($('#graph'), $('#log'));
     $('#stop_msg_tracing').click(e => {
       if (this.cluster_view)
         this.cluster_view.stopMsgTraceAll();
