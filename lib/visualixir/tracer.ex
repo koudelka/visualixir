@@ -205,7 +205,7 @@ defmodule Visualixir.Tracer do
   end
 
   def cleanup(node) do
-    :rpc.call(node, :code, :delete, [__MODULE__])
     :rpc.call(node, :code, :purge, [__MODULE__])
+    :rpc.call(node, :code, :delete, [__MODULE__])
   end
 end
