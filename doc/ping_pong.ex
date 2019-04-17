@@ -2,7 +2,7 @@ defmodule PingPong do
 
   @delay 1000
 
-  def start do
+  def start() do
     pinger = spawn(__MODULE__, :loop, [])
     ponger = spawn(__MODULE__, :loop, [])
 
@@ -11,15 +11,15 @@ defmodule PingPong do
     {pinger, ponger}
   end
 
-  def loop do
+  def loop() do
     receive do
       {from, :ping} ->
         :timer.sleep(@delay)
-        send(from, {self, :pong})
+        send(from, {self(), :pong})
       {from, :pong} ->
         :timer.sleep(@delay)
-        send(from, {self, :ping})
+        send(from, {self(), :ping})
     end
-    loop
+    loop()
   end
 end
