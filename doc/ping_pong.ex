@@ -1,6 +1,6 @@
 defmodule PingPong do
 
-  @delay 1000
+  @delay 3000
 
   def start do
     pinger = spawn(__MODULE__, :loop, [])

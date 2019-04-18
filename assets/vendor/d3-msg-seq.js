@@ -7,8 +7,7 @@ d3.messageSequence = function() {
   var actor_names = [];
   var update;
 
-  var animation_in_progress,
-      update_pending;
+  var fade_in_progress;
 
   // lots of O(n) here, move to a map at some point
   function remove_free_actors() {
@@ -45,13 +44,6 @@ d3.messageSequence = function() {
       svg.append("g").classed("actors", true);
 
       update = function() {
-        if (animation_in_progress) {
-          update_pending = true;
-          return;
-        }
-
-        animation_in_progress = true;
-
         function index_horizontal_center_percent(_d, index) {
           return (index+1) * (100/(actor_names.length+1)) + "%";
         }
@@ -85,22 +77,30 @@ d3.messageSequence = function() {
         }
 
         function fade_message() {
-          svg.select("g.message")
+          if (fade_in_progress)
+            return;
+
+          let selection = svg.select("g.message");
+
+          if (selection.size() > 0)
+            fade_in_progress = true;
+
+          selection
             .transition()
             .duration(fade_time)
             .style("opacity", 0)
             .remove()
             .on("end", function() {
+              fade_in_progress = false;
               data.shift();
               remove_free_actors();
+              fade_message();
               update();
-              if (data.length > 0)
-                fade_message();
             });
         }
 
-        function update_message_elements(messages) {
-          messages.select("line")
+        function update_message_elements(m) {
+          m.select("line")
             .transition()
               .duration(animation_time)
               .attr("x1", function(d) { return actor_horizontal_center_percent(d.from) })
@@ -108,12 +108,12 @@ d3.messageSequence = function() {
               .attr("x2", function(d) { return actor_horizontal_center_percent(d.to) })
               .attr("y2", function(d, i) { return (i+1)*50 });
 
-          messages.select("path")
+          m.select("path")
             .transition()
             .duration(animation_time)
             .attr("d", arc_to_self);
 
-          messages.select("text")
+          m.select("text")
             .transition()
             .duration(animation_time)
             .attr("x", function(d) {
@@ -128,24 +128,79 @@ d3.messageSequence = function() {
         var messages = svg.selectAll("g.message").data(data);
 
         update_message_elements(messages);
-        update_message_elements(messages.exit());
+
+        function add_new_messages() {
+          var new_messages =
+              messages
+              .enter()
+              .append("g")
+              .classed("message", true);
+
+          new_messages.each(function(d, i) {
+            var new_message = d3.select(this);
+
+            if (d.from == d.to) {
+              new_message.append("path")
+                .attr("marker-end", "url(#msg-arrow)")
+                .attr("fill-opacity", 0)
+                .attr("d", function() { return arc_to_self(d, i) });
+            }
+            else {
+              new_message.append("line")
+                .attr("marker-end", "url(#msg-arrow)")
+                .attr("x1", svg.select("line[data-actor='" + d.from + "']").attr("x1"))
+                .attr("y1", (i+1)*50)
+                .attr("x2", svg.select("line[data-actor='" + d.to + "']").attr("x1"))
+                .attr("y2", (i+1)*50);
+            }
+
+            new_message.append("text")
+              .attr("text-anchor", d.from == d.to ? "end" : "middle")
+              .attr("alignment-baseline", d.from == d.to ? "middle" : "auto")
+              .text(d.msg)
+              .attr("x", function() {
+                var x1 = Number.parseFloat(svg.select("line[data-actor='" + d.from + "']").attr("x1")),
+                    x2 = Number.parseFloat(svg.select("line[data-actor='" + d.to + "']").attr("x1"));
+
+                return horizontal_center(x1, x2);
+              })
+              .attr("y", (i+1)*50 - 5);
+
+            if (fade_time > 0)
+              fade_message();
+          });
+
+          messages = messages.merge(new_messages);
+        }
+
+        let actor_addition_in_progress,
+            actor_removal_in_progress;
 
         var actors = svg.select("g.actors").selectAll("g.actor").data(actor_names, function(d) { return d });
 
         actors.exit()
           .transition()
-            .duration(animation_time)
-            .style("opacity", 0)
-            .remove();
+          .duration(animation_time)
+          .style("opacity", 0)
+          .remove()
+          .on("start", function() {
+            actor_removal_in_progress = true;
+          })
+          .on("end", function() {
+            actor_removal_in_progress = false;
+
+            if (!actor_addition_in_progress)
+              add_new_messages();
+          });
 
         var new_actors = actors.enter().append("g");
-
-        actors = actors.merge(new_actors);
 
         new_actors.classed("actor", true)
           .append("text");
 
         new_actors.append("line");
+
+        actors = actors.merge(new_actors);
 
         actors.select("text")
           .attr("text-anchor", "middle")
@@ -168,53 +223,14 @@ d3.messageSequence = function() {
             .duration(animation_time)
             .attr("x1", index_horizontal_center_percent)
             .attr("x2", index_horizontal_center_percent)
+            .on("start", function() {
+              actor_addition_in_progress = true;
+            })
             .on("end", function() {
-              var new_messages = messages
-                  .enter()
-                  .append("g")
-                  .classed("message", true);
+              actor_addition_in_progress = false;
 
-              messages = messages.merge(new_messages);
-
-              new_messages.each(function(d, i) {
-                var new_message = d3.select(this);
-
-                if (d.from == d.to) {
-                  new_message.append("path")
-                    .attr("marker-end", "url(#msg-arrow)")
-                    .attr("fill-opacity", 0)
-                    .attr("d", function() { return arc_to_self(d, i) });
-                }
-                else {
-                  new_message.append("line")
-                    .attr("marker-end", "url(#msg-arrow)")
-                    .attr("x1", svg.select("line[data-actor='" + d.from + "']").attr("x1"))
-                    .attr("y1", (i+1)*50)
-                    .attr("x2", svg.select("line[data-actor='" + d.to + "']").attr("x1"))
-                    .attr("y2", (i+1)*50);
-                }
-
-                new_message.append("text")
-                  .attr("text-anchor", d.from == d.to ? "end" : "middle")
-                  .attr("alignment-baseline", d.from == d.to ? "middle" : "auto")
-                  .text(d.msg)
-                  .attr("x", function() {
-                    var x1 = Number.parseFloat(svg.select("line[data-actor='" + d.from + "']").attr("x1")),
-                        x2 = Number.parseFloat(svg.select("line[data-actor='" + d.to + "']").attr("x1"));
-
-                    return horizontal_center(x1, x2);
-                  })
-                  .attr("y", (i+1)*50 - 5);
-              });
-
-              if (fade_time > 0 && data.length == 1)
-                fade_message();
-
-              animation_in_progress = false;
-              if (update_pending) {
-                update_pending = false;
-                update();
-              }
+              if (!actor_removal_in_progress)
+                add_new_messages();
             });
       };
     });

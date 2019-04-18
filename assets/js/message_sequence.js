@@ -9,6 +9,7 @@ export default class {
     this.id = nextMessageSequenceID++;
     this.svg = svg;
     this.msg_seq = d3.messageSequence().fade(FADE_TIME);
+    window.msg_seq = this.msg_seq
 
     this.svg.node().msg_seq = this;
 
@@ -30,10 +31,10 @@ export default class {
       text = text.slice(0, MAX_MSG_LENGTH-1) + " ...";
 
     if (from.length > MAX_PID_LENGTH)
-      from = from.slice(0, MAX_PID_LENGTH-1) + "...";
+      from = from.slice(0, MAX_PID_LENGTH-1) + " ...";
 
     if (to.length > MAX_PID_LENGTH)
-      to = to.slice(0, MAX_PID_LENGTH-1) + "...";
+      to = to.slice(0, MAX_PID_LENGTH-1) + " ...";
 
     this.msg_seq.addMessage({from: from, to: to, msg: text});
   }
