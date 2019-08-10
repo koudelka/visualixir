@@ -16,7 +16,7 @@ Huge gifs are worth a thousand words:
 ## Getting Going
 
 1. Clone this repository.
-2. Compile: `mix deps.get && mix compile && cd assets && npm install`
+2. Compile: `mix deps.get && mix compile && cd assets && npm install && cd -`
 3. Start 'er up: `elixir --sname visualixir -S mix phx.server`
 4. Navigate to [the GUI](http://0.0.0.0:4000)
 
@@ -24,7 +24,7 @@ If you want to visualize other BEAM nodes, you'll need to start them up with the
 
 I suggest you use Chrome for Visualixir, Safari and Firefox's SVG performance seems to be lacking. :(
 
-There's a simple `PingPong` [module](https://github.com/koudelka/visualixir/blob/master/doc/ping_pong.ex) included, for demo purposes.
+There are a couple example modules included, [SingleNodePingPong](https://github.com/koudelka/visualixir/blob/master/lib/visualixir/examples/single_node_ping_pong.ex) and [MultiNodePingPong](https://github.com/koudelka/visualixir/blob/master/lib/visualixir/examples/multi_node_ping_pong.ex). Additionally, there's a [Cluster](https://github.com/koudelka/visualixir/blob/master/test/support/cluster.ex) module to start up additional `:slave` nodes.
 
 ## Usage
 
@@ -41,10 +41,6 @@ Zoom by scrolling (mousewheel or two-finger swipe).
 #### Message Tracing
 Option-dragging (alt-dragging), will open a new "conversation", you can drop a set of pids into the upper left box to start tracing, you should see messages they send/receive in the adjoining box. Its outline will change to red to remind you that you're tracing it. You can click the `Stop Msg Tracing` button to halt all message tracing.
 
-#### Event Log
-The log at the bottom keeps a brief history of a limited set of events on the node: spawns, exits, links, messages, etc..
-
-#### Live Message Sequence Charts
 The live message sequence charts have a configurable fade time, but there's no GUI for it yet, see [web/static/js/message_sequence.js](https://github.com/koudelka/visualixir/blob/master/web/static/js/message_sequence.js)
 
 The charting library is [here](https://github.com/koudelka/d3-message-sequence), and it'd love some pull requests. <3
