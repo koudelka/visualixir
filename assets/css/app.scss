@@ -91,7 +91,7 @@ g.process {
 
     rect {
       fill: grey;
-      opacity: 0.3;
+      opacity: 0.5;
     }
 
     text {
@@ -111,11 +111,12 @@ g.process {
   display: inline-block;
 
   g.actor text {
+      fill: white;
       font-size: 6pt !important;
   }
 
   g.actor line {
-    stroke: lightgray;
+    stroke: black;
     stroke-width: 1px;
   }
 
@@ -124,12 +125,12 @@ g.process {
   }
 
   g.message line {
-    stroke: black;
+    stroke: white;
     stroke-width: 1.5px;
   }
 
   g.message path {
-    stroke: black;
+    stroke: white;
     stroke-width: 1.5px;
   }
 }

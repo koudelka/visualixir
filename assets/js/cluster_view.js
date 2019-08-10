@@ -107,6 +107,8 @@ export default class {
     let from = this.processes[msg.from_pid],
         to = this.processes[msg.to_pid];
 
+    this.logger.logMsgLine(from, to, msg.msg);
+
     // FIXME: should we really care if the processes exist to log the message?
     if (from && to) {
       this.logger.logMsgLine(from, to, msg.msg);

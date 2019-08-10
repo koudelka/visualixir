@@ -1,12 +1,15 @@
 defmodule Visualixir.Tracer do
   use GenServer
-  alias VisualixirWeb.TraceChannel
+
   require Logger
+
+  alias Visualixir.Util
+  alias VisualixirWeb.TraceChannel
 
   def start(node) do
     # visualixir node already has this module
     if node != Node.self() do
-      send_module(node)
+      Util.send_module(__MODULE__, node)
     end
 
     Node.spawn_link(node, :gen_server, :start, [{:local, __MODULE__}, __MODULE__, [Node.self], []])
@@ -62,8 +65,12 @@ defmodule Visualixir.Tracer do
     {:reply, :ok, visualizer_node}
   end
 
-  def handle_info({:trace, _spawner_pid, :spawn, pid, _mfa} = msg, visualizer_node) do
-    :rpc.call(visualizer_node, TraceChannel, :announce_spawn, [map_pids_to_info([pid])])
+  def handle_info({:trace, _spawner_pid, :spawn, pid, _mfa}, visualizer_node) do
+    pid_info = map_pids_to_info([pid])
+
+    if !Enum.empty?(pid_info) do
+      :rpc.call(visualizer_node, TraceChannel, :announce_spawn, [pid_info])
+    end
 
     {:noreply, visualizer_node}
   end
@@ -96,6 +103,16 @@ defmodule Visualixir.Tracer do
   end
 
   def handle_info({:trace, from_pid, :send, msg, to_pid}, visualizer_node) do
+    to_pid =
+      case to_pid do
+        {name, node} ->
+          :rpc.call(node, :erlang, :whereis, [name])
+        pid when is_pid(pid) ->
+          pid
+        name ->
+          :erlang.whereis(name)
+      end
+
     :rpc.call(visualizer_node, TraceChannel, :announce_msg, [from_pid,
                                                              to_pid,
                                                              msg])
@@ -105,12 +122,12 @@ defmodule Visualixir.Tracer do
   def handle_info({:nodedown, visualizer_node}, visualizer_node) do
     :erlang.display('[Visualixir] Lost connection to visualizer node, purging Tracer module.')
 
-    cleanup()
+    Util.cleanup()
 
     {:stop, :normal, visualizer_node}
   end
 
-  def handle_info(msg, state) do
+  def handle_info(_msg, state) do
     {:noreply, state}
   end
 
@@ -216,19 +233,5 @@ defmodule Visualixir.Tracer do
     rescue ArgumentError ->
         nil
     end
-  end
-
-  #
-  # Remote node code (un)loading.
-  #
-
-  def send_module(node) do
-    {module, binary, file} = :code.get_object_code(__MODULE__)
-    :rpc.call(node, :code, :load_binary, [module, file, binary])
-  end
-
-  def cleanup do
-    :code.purge(__MODULE__)
-    :code.delete(__MODULE__)
   end
 end

@@ -21,6 +21,6 @@ export default class {
   }
 
   qualifiedName() {
-    return this.name + "@" + this.node;
+    return this.name + "@" + this.node.replace(/@.*/, '');
   }
 }

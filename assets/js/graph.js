@@ -153,7 +153,7 @@ export default class {
     this.invisible_links = {}; // used to group unlinked (free-floating) pids near the "net_kernel" pid
     this.msgs = {};
     this.conversations = {}; // process -> list of conversations
-    this.message_sequences = {}; // conversaion -> MessageSequence
+    this.message_sequences = {}; // conversation -> MessageSequence
   }
 
   transform_point(x, y) {
@@ -469,7 +469,7 @@ export default class {
 
     new_node_bgs
       .append("text")
-      .text(d => d);
+      .text(d => d.replace(/@.*/, ''));
 
     node_bgs = node_bgs.merge(new_node_bgs);
 

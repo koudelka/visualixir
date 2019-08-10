@@ -6,7 +6,7 @@ defmodule Visualixir.Mixfile do
       app: :visualixir,
       version: "0.1.0",
       elixir: "~> 1.5",
-      elixirc_paths: elixirc_paths(Mix.env()),
+      elixirc_paths: elixirc_paths(),
       # elixirc_options: [warnings_as_errors: true],
       compilers: [:phoenix] ++ Mix.compilers(),
       build_embedded: Mix.env() == :prod,
@@ -15,6 +15,8 @@ defmodule Visualixir.Mixfile do
     ]
   end
 
+  defp elixirc_paths, do: ["lib", "test/support"]
+
   # Configuration for the OTP application
   #
   # Type `mix help compile.app` for more information
@@ -22,10 +24,6 @@ defmodule Visualixir.Mixfile do
     [mod: {Visualixir, []},
      applications: [:phoenix, :phoenix_html, :cowboy, :logger]]
   end
-
-  # Specifies which paths to compile per environment
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
-  defp elixirc_paths(_),     do: ["lib"]
 
   # Specifies your project dependencies
   #

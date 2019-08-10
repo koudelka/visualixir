@@ -9,7 +9,7 @@ export default class {
     this.id = nextMessageSequenceID++;
     this.svg = svg;
     this.msg_seq = d3.messageSequence().fade(FADE_TIME);
-    window.msg_seq = this.msg_seq
+    window.msg_seq = this.msg_seq;
 
     this.svg.node().msg_seq = this;
 
