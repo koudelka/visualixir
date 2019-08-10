@@ -72,14 +72,6 @@ defmodule VisualixirWeb.TraceChannel do
     end)
   end
 
-  defp pid_pairs_to_binary(pairs) do
-    Enum.map(pairs, &pid_pair_to_binary/1)
-  end
-
-  defp pid_pair_to_binary([from, to]) do
-    [pid_to_binary(from), pid_to_binary(to)]
-  end
-
 
   defp pid_to_binary(pid) when is_pid(pid) do
     pid

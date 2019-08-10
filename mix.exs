@@ -4,7 +4,7 @@ defmodule Visualixir.Mixfile do
   def project do
     [
       app: :visualixir,
-      version: "0.1.0",
+      version: "0.1.99999999",
       elixir: "~> 1.5",
       elixirc_paths: elixirc_paths(),
       # elixirc_options: [warnings_as_errors: true],
