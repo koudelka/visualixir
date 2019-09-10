@@ -9,7 +9,6 @@ Huge gifs are worth a thousand words:
 ![Cluster Select](https://raw.githubusercontent.com/koudelka/visualixir/master/doc/cluster_select.gif)
 ![Cluster Tour](https://raw.githubusercontent.com/koudelka/visualixir/master/doc/cluster_tour.gif)
 
-"Conversions"
 ![Msg Seq](https://raw.githubusercontent.com/koudelka/visualixir/master/doc/msg_seq.gif)
 ![Msg Seq 2](https://raw.githubusercontent.com/koudelka/visualixir/master/doc/msg_seq_2.gif)
 
